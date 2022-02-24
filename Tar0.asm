@@ -1,16 +1,18 @@
 InputA
-$$$ BUYbread$$$
+### BUY bread ###
 13.500000
-$$$ BUYcheese$$$
+### BUY cheese ###
 10.600000
-$$$ BUYmilk$$$
+### BUY milk ###
 24.800000
-$$$ BUYmilk$$$
+### BUY milk ###
 22.400000
 InputB
-$$$ BUYchocolate$$$
+### BUY chocolate ###
 12.500000
-$$$ BUYcheese$$$
+### BUY cheese ###
 10.600000
-$$$ BUYmilk$$$
+### BUY milk ###
 11.100000
+TOTAL BUY: 105.500000
+TOTAL CELL: 0.000000

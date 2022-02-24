@@ -25,6 +25,9 @@ var pathArray = strings.Split(path, "\\")
 var directoryName = pathArray[len(pathArray)-1]
 var outputFile, _ = os.Create(directoryName + ".asm")
 
+var totalBuy = float64(0)
+var totalCell = float64(0)
+
 func main() {
 	fmt.Println("Hello World !")
 
@@ -68,19 +71,23 @@ func main() {
 		}
 		return nil
 	})
+	outputFile.WriteString("TOTAL BUY: " + fmt.Sprintf("%f\n", totalBuy))
+	outputFile.WriteString("TOTAL CELL: " + fmt.Sprintf("%f\n", totalCell))
 
 }
 
 func HandleBuy(ProductName string, Amount int, Price float64) {
-	outputFile.WriteString("### BUY" + ProductName + "###\n")
+	outputFile.WriteString("### BUY " + ProductName + " ###\n")
 	var totalPrice = float64(Amount) * Price
-	var n = fmt.Sprintf("%f", totalPrice)
-	outputFile.WriteString(n + "\n")
+	var priceStr = fmt.Sprintf("%f", totalPrice)
+	outputFile.WriteString(priceStr + "\n")
+	totalBuy = totalBuy + totalPrice
 }
 
 func HandleSell(ProductName string, Amount int, Price float64) {
-	outputFile.WriteString("$$$ CELL" + ProductName + "$$$\n")
+	outputFile.WriteString("$$$ CELL " + ProductName + " $$$\n")
 	var totalPrice = float64(Amount) * Price
 	var n = fmt.Sprintf("%f", totalPrice)
 	outputFile.WriteString(n + "\n")
+	totalCell = totalCell + totalPrice
 }
