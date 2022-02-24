@@ -1,0 +1,2 @@
+InputA
+InputB
