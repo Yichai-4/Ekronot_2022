@@ -72,7 +72,7 @@ func main() {
 					HandleBuy(productName, amount, price)
 				}
 
-				if firstWord == "sell" {
+				if firstWord == "cell" {
 					HandleSell(productName, amount, price)
 				}
 			}
@@ -92,6 +92,7 @@ func main() {
 }
 
 func HandleBuy(ProductName string, Amount int, Price float64) {
+
 	outputFile.WriteString("### BUY " + ProductName + " ###\n")
 	var totalPrice = float64(Amount) * Price
 	var priceStr = fmt.Sprintf("%f", totalPrice)
@@ -100,6 +101,7 @@ func HandleBuy(ProductName string, Amount int, Price float64) {
 }
 
 func HandleSell(ProductName string, Amount int, Price float64) {
+
 	outputFile.WriteString("$$$ CELL " + ProductName + " $$$\n")
 	var totalPrice = float64(Amount) * Price
 	var n = fmt.Sprintf("%f", totalPrice)
