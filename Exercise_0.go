@@ -18,21 +18,16 @@ func check(e error) {
 		panic(e)
 	}
 }
+
+// Receive the path in program argument
+var path = os.Args[1] // receiving the path as cli parameter
+var pathArray = strings.Split(path, "\\")
+var directoryName = pathArray[len(pathArray)-1]
+var outputFile, _ = os.Create(directoryName + ".asm")
+
 func main() {
 	fmt.Println("Hello World !")
-	/* 1) Receive the path from the user
-	fmt.Println("Enter a path: ")
-	var path string
-	fmt.Scanln(&path)
-	*/
 
-	// 2) Receive the path in program argument
-	path := os.Args[1]
-	pathArray := strings.Split(path, "\\")
-	directoryName := pathArray[len(pathArray)-1]
-	fmt.Println(directoryName)
-	outputFile, err := os.Create(directoryName + ".asm")
-	check(err)
 	defer outputFile.Close()
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -41,13 +36,14 @@ func main() {
 		var fileName = info.Name()
 		var extension = filepath.Ext(fileName)
 		if extension == ".vm" {
-			fmt.Printf("File Name: %s\n", info.Name())
+			fmt.Printf("File Name: %s\n", fileName)
 			var name = strings.TrimRight(fileName, extension)
 			outputFile.WriteString(name + "\n")
 
 			inputFile, err := os.Open(path)
 			check(err)
 			defer inputFile.Close()
+
 			scanner := bufio.NewScanner(inputFile)
 
 			for scanner.Scan() {
@@ -76,9 +72,15 @@ func main() {
 }
 
 func HandleBuy(ProductName string, Amount int, Price float64) {
-
+	outputFile.WriteString("### BUY" + ProductName + "###\n")
+	var totalPrice = float64(Amount) * Price
+	var n = fmt.Sprintf("%f", totalPrice)
+	outputFile.WriteString(n + "\n")
 }
 
 func HandleSell(ProductName string, Amount int, Price float64) {
-
+	outputFile.WriteString("$$$ CELL" + ProductName + "$$$\n")
+	var totalPrice = float64(Amount) * Price
+	var n = fmt.Sprintf("%f", totalPrice)
+	outputFile.WriteString(n + "\n")
 }
