@@ -1,7 +1,10 @@
-// Submitter 1: Yichaï Hazan
-// ID: 1669535
-// Submitter 2: Amitai Shmeeda
-// ID: 305361479
+/*
+Submitter 1: Yichaï Hazan
+ID: 1669535
+Submitter 2: Amitai Shmeeda
+ID: 305361479
+Group number: 150060.01.5782.41-42
+*/
 
 package main
 
