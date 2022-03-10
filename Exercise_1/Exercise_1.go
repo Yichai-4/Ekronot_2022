@@ -79,27 +79,97 @@ func main() {
 
 }
 
+// PopTranslation Translation of pop command to hack language
 func PopTranslation(segment string, i string) {
-	if segment == "local" {
+	switch segment {
+	// Translation for the command pop local i
+	case "local":
 		outputFile.WriteString("@" + i + "\nD=A\n@LCL\nD=D+M\n@addr\nM=D\n") // addr=LCL+i
 		outputFile.WriteString("@SP\nM=M-1\n")                               // SP--
 		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")           // *addr=*SP
+	// Translation for the command pop argument i
+	case "argument":
+		outputFile.WriteString("@" + i + "\nD=A\n@ARG\nD=D+M\n@addr\nM=D\n") // addr=ARG+i
+		outputFile.WriteString("@SP\nM=M-1\n")                               // SP--
+		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")           // *addr=*SP
+	// Translation for the command pop this i
+	case "this":
+		outputFile.WriteString("@" + i + "\nD=A\n@THIS\nD=D+M\n@addr\nM=D\n") // addr=THIS+i
+		outputFile.WriteString("@SP\nM=M-1\n")                                // SP--
+		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")            // *addr=*SP
+	// Translation for the command pop that i
+	case "that":
+		outputFile.WriteString("@" + i + "\nD=A\n@THAT\nD=D+M\n@addr\nM=D\n") // addr=THAT+i
+		outputFile.WriteString("@SP\nM=M-1\n")                                // SP--
+		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")            // *addr=*SP
+	// Translation for the command pop static i
+	case "static":
+		outputFile.WriteString("@SP\nM=M-1\n")                       // SP--
+		outputFile.WriteString("@SP\nA=M\nD=M\n")                    // D=*SP
+		outputFile.WriteString("@" + fileName + "." + i + "\nM=D\n") // static i = D
+	// Translation for the command pop temp i
+	case "temp":
+		outputFile.WriteString("@" + i + "\nD=A\n@5\nD=D+A\n@addr\nM=D\n") // addr=5+i
+		outputFile.WriteString("@SP\nM=M-1\n")                             // SP--
+		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")         // *addr=*SP
+	case "pointer":
+		outputFile.WriteString("@SP\nM=M-1\n") // SP--
+		if i == "0" {
+			outputFile.WriteString("@THIS\nD=M\n@addr\nM=D\n") // addr=THIS
+		} else { // i == "1"
+			outputFile.WriteString("@THAT\nD=M\n@addr\nM=D\n") // addr=THAT
+		}
+		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n") // *addr=*SP
 	}
-
 }
 
+// PushTranslation Translation of push command to hack language
 func PushTranslation(segment string, i string) {
-	// Translation for the command push constant i
-	if segment == "constant" {
-		outputFile.WriteString("@" + i + "\nD=A\n") // D=i
-		outputFile.WriteString("@SP\nA=M\nM=D\n")   // *SP=D
-		outputFile.WriteString("@SP\nM=M+1\n")      // SP++
-	}
-	if segment == "local" {
+	switch segment {
+	// Translation for the command push local i
+	case "local":
 		outputFile.WriteString("@" + i + "\nD=A\n@LCL\nD=D+M\n@addr\nM=D\n") // addr=LCL+i
 		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                  // *SP=*addr
 		outputFile.WriteString("@SP\nM=M+1\n")                               // SP++
-
+	// Translation for the command push argument i
+	case "argument":
+		outputFile.WriteString("@" + i + "\nD=A\n@ARG\nD=D+M\n@addr\nM=D\n") // addr=ARG+i
+		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                  // *SP=*addr
+		outputFile.WriteString("@SP\nM=M+1\n")                               // SP++
+	// Translation for the command push this i
+	case "this":
+		outputFile.WriteString("@" + i + "\nD=A\n@THIS\nD=D+M\n@addr\nM=D\n") // addr=THIS+i
+		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                   // *SP=*addr
+		outputFile.WriteString("@SP\nM=M+1\n")                                // SP++
+	// Translation for the command push that i
+	case "that":
+		outputFile.WriteString("@" + i + "\nD=A\n@THAT\nD=D+M\n@addr\nM=D\n") // addr=THAT+i
+		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                   // *SP=*addr
+		outputFile.WriteString("@SP\nM=M+1\n")                                // SP++
+	// Translation for the command push constant i
+	case "constant":
+		outputFile.WriteString("@" + i + "\nD=A\n") // D=i
+		outputFile.WriteString("@SP\nA=M\nM=D\n")   // *SP=D
+		outputFile.WriteString("@SP\nM=M+1\n")      // SP++
+	// Translation for the command push static i
+	case "static":
+		outputFile.WriteString("@" + fileName + "." + i + "\nD=M\n") // D = static i
+		outputFile.WriteString("@SP\nA=M\nM=D\n")                    // *SP=D
+		outputFile.WriteString("@SP\nM=M+1\n")                       // SP++
+	// Translation for the command push temp i
+	case "temp":
+		outputFile.WriteString("@" + i + "\nD=A\n@5\nD=D+A\n@addr\nM=D\n") // addr=5+i
+		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                // *SP=*addr
+		outputFile.WriteString("@SP\nM=M+1\n")                             // SP++
+	// Translation for the command push pointer 0/1
+	case "pointer":
+		if i == "0" {
+			outputFile.WriteString("@THIS\nD=M\n") // D=*THIS
+		} else { // i == "1"
+			outputFile.WriteString("@THAT\nD=M\n") // D=*THAT
+		}
+		outputFile.WriteString("@SP\nA=M\nM=D\n") // *SP=D
+		outputFile.WriteString("@SP\nM=M+1\n")    // SP++
 	}
 }
 
