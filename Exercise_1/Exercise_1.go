@@ -30,7 +30,6 @@ func main() {
 	defer outputFile.Close()
 
 	// Go through the file and performs some operations
-	// filepath.WalkDir()
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Fatalf(err.Error())
