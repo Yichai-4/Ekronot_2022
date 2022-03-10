@@ -96,9 +96,9 @@ func PushTranslation(segment string, i string) {
 		outputFile.WriteString("@SP\nM=M+1\n")      // SP++
 	}
 	if segment == "local" {
-		outputFile.WriteString("@" + i + "\nD=A\n@LCL\nD=D+M\n") // addr=LCL+i
-		outputFile.WriteString("@SP\nA=M\nM=D\n")                // *SP=*addr
-		outputFile.WriteString("@SP\nM=M+1\n")                   // SP++
+		outputFile.WriteString("@" + i + "\nD=A\n@LCL\nD=D+M\n@addr\nM=D\n") // addr=LCL+i
+		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                  // *SP=*addr
+		outputFile.WriteString("@SP\nM=M+1\n")                               // SP++
 
 	}
 }
