@@ -102,12 +102,18 @@ func main() {
 
 func AddTranslation() {
 	outputFile.WriteString("// add\n")
-
+	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
+	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D+M\n") // SP--, result=x(*SP)+y
+	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n")          // *SP=result
+	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
 }
 
 func SubTranslation() {
 	outputFile.WriteString("// sub\n")
-
+	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
+	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D-M\n") // SP--, result=x(*SP)-y
+	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n")          // *SP=result
+	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
 }
 
 func NegTranslation() {
