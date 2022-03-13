@@ -101,38 +101,47 @@ func main() {
 }
 
 func AddTranslation() {
+	outputFile.WriteString("// add\n")
 
 }
 
 func SubTranslation() {
+	outputFile.WriteString("// sub\n")
 
 }
 
 func NegTranslation() {
+	outputFile.WriteString("// neg\n")
 
 }
 
 func EqTranslation() {
+	outputFile.WriteString("// eq\n")
 
 }
 
 func GtTranslation() {
+	outputFile.WriteString("// gt\n")
 
 }
 
 func LtTranslation() {
+	outputFile.WriteString("// lt\n")
 
 }
 
 func AndTranslation() {
+	outputFile.WriteString("// and\n")
 
 }
 
 func OrTranslation() {
+	outputFile.WriteString("// or\n")
 
 }
 
 func NotTranslation() {
+	outputFile.WriteString("// not\n")
 
 }
 
