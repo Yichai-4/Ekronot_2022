@@ -45,7 +45,7 @@ func main() {
 			fmt.Printf("File Name: %s\n", fileName)
 			// removes the extension from the file name and prints it
 			name := strings.TrimRight(fileName, extension)
-			outputFile.WriteString(name + ":\n")
+			outputFile.WriteString("// " + name + ":\n")
 
 			inputFile, err := os.Open(path)
 			check(err)
@@ -56,15 +56,36 @@ func main() {
 			for scanner.Scan() {
 				words := strings.Split(scanner.Text(), " ")
 				command := words[0]
-				if command == "push" || command == "pop" {
+				switch command {
+				// Arithmetic commands
+				case "add": // Integer addition (2's complement)
+					AddTranslation()
+				case "sub": // Integer subtraction (2's complement)
+					SubTranslation()
+				case "neg": // Arithmetic negation (2's complement)
+					NegTranslation()
+				// Boolean commands
+				case "eq": // Equality
+					EqTranslation()
+				case "gt": // Greater than
+					GtTranslation()
+				case "lt": // Less than
+					LtTranslation()
+				case "and":
+					AndTranslation()
+				case "or":
+					OrTranslation()
+				case "not":
+					NotTranslation()
+				// Memory access commands
+				case "push":
 					segment := words[1]
 					i := words[2]
-					if command == "push" {
-						PushTranslation(segment, i)
-					}
-					if command == "pop" {
-						PopTranslation(segment, i)
-					}
+					PushTranslation(segment, i)
+				case "pop":
+					segment := words[1]
+					i := words[2]
+					PopTranslation(segment, i)
 				}
 
 			}
@@ -79,8 +100,45 @@ func main() {
 
 }
 
+func AddTranslation() {
+
+}
+
+func SubTranslation() {
+
+}
+
+func NegTranslation() {
+
+}
+
+func EqTranslation() {
+
+}
+
+func GtTranslation() {
+
+}
+
+func LtTranslation() {
+
+}
+
+func AndTranslation() {
+
+}
+
+func OrTranslation() {
+
+}
+
+func NotTranslation() {
+
+}
+
 // PopTranslation Translation of pop command to hack language
 func PopTranslation(segment string, i string) {
+	outputFile.WriteString("// pop " + segment + i + "\n") // general comment for the respective pop command
 	switch segment {
 	// Translation for the command pop local i
 	case "local":
@@ -125,6 +183,7 @@ func PopTranslation(segment string, i string) {
 
 // PushTranslation Translation of push command to hack language
 func PushTranslation(segment string, i string) {
+	outputFile.WriteString("// push " + segment + i + "\n") // general comment for the respective push command
 	switch segment {
 	// Translation for the command push local i
 	case "local":
