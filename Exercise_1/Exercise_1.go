@@ -118,6 +118,9 @@ func SubTranslation() {
 
 func NegTranslation() {
 	outputFile.WriteString("// neg\n")
+	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=M-D\n") // SP--, result=0-y
+	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n")          // *SP=result
+	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
 
 }
 
@@ -151,7 +154,7 @@ func NotTranslation() {
 
 }
 
-// PopTranslation Translation of pop command to hack language
+// PopTranslation Translation of pop command (in VM language) to Hack language
 func PopTranslation(segment string, i string) {
 	outputFile.WriteString("// pop " + segment + i + "\n") // general comment for the respective pop command
 	switch segment {
@@ -185,6 +188,7 @@ func PopTranslation(segment string, i string) {
 		outputFile.WriteString("@" + i + "\nD=A\n@5\nD=D+A\n@addr\nM=D\n") // addr=5+i
 		outputFile.WriteString("@SP\nM=M-1\n")                             // SP--
 		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")         // *addr=*SP
+	// Translation for the command pop pointer 0/1
 	case "pointer":
 		outputFile.WriteString("@SP\nM=M-1\n") // SP--
 		if i == "0" {
@@ -196,7 +200,7 @@ func PopTranslation(segment string, i string) {
 	}
 }
 
-// PushTranslation Translation of push command to hack language
+// PushTranslation Translation of push command (in VM language) to Hack language
 func PushTranslation(segment string, i string) {
 	outputFile.WriteString("// push " + segment + i + "\n") // general comment for the respective push command
 	switch segment {
