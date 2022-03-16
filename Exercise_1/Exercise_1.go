@@ -71,11 +71,11 @@ func main() {
 					GtTranslation()
 				case "lt": // Less than
 					LtTranslation()
-				case "and":
+				case "and": // Bit-wise
 					AndTranslation()
-				case "or":
+				case "or": // Bit-wise
 					OrTranslation()
-				case "not":
+				case "not": // Bit-wise
 					NotTranslation()
 				// Memory access commands
 				case "push":
@@ -100,6 +100,7 @@ func main() {
 
 }
 
+// AddTranslation Translation of add command (in VM language) to Hack language
 func AddTranslation() {
 	outputFile.WriteString("// add\n")
 	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
@@ -108,6 +109,7 @@ func AddTranslation() {
 	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
 }
 
+// SubTranslation Translation of sub command (in VM language) to Hack language
 func SubTranslation() {
 	outputFile.WriteString("// sub\n")
 	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
@@ -116,6 +118,7 @@ func SubTranslation() {
 	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
 }
 
+// NegTranslation Translation of neg command (in VM language) to Hack language
 func NegTranslation() {
 	outputFile.WriteString("// neg\n")
 	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=M-D\n") // SP--, result=0-y
@@ -124,31 +127,37 @@ func NegTranslation() {
 
 }
 
+// EqTranslation Translation of eq command (in VM language) to Hack language
 func EqTranslation() {
 	outputFile.WriteString("// eq\n")
 
 }
 
+// GtTranslation Translation of gt command (in VM language) to Hack language
 func GtTranslation() {
 	outputFile.WriteString("// gt\n")
 
 }
 
+// LtTranslation Translation of lt command (in VM language) to Hack language
 func LtTranslation() {
 	outputFile.WriteString("// lt\n")
 
 }
 
+// AndTranslation Translation of and command (in VM language) to Hack language
 func AndTranslation() {
 	outputFile.WriteString("// and\n")
 
 }
 
+// OrTranslation Translation of or command (in VM language) to Hack language
 func OrTranslation() {
 	outputFile.WriteString("// or\n")
 
 }
 
+// NotTranslation Translation of not command (in VM language) to Hack language
 func NotTranslation() {
 	outputFile.WriteString("// not\n")
 
