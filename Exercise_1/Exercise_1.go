@@ -17,10 +17,6 @@ import (
 	"strings"
 )
 
-// Defining constants
-
-// var PushPopCommand = [2]string{"push", "pop"}
-
 // Receive the path in program argument
 // var path = os.Args[1] // receiving the path as cli parameter
 var path = "C:\\Ekronot_2022\\nand2tetris\\projects\\07\\StackArithmetic\\SimpleAdd"
