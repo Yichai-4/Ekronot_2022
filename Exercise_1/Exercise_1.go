@@ -22,7 +22,7 @@ import (
 // var PushPopCommand = [2]string{"push", "pop"}
 
 // Receive the path in program argument
-//var path = os.Args[1] // receiving the path as cli parameter
+// var path = os.Args[1] // receiving the path as cli parameter
 var path = "C:\\Ekronot_2022\\nand2tetris\\projects\\07\\StackArithmetic\\SimpleAdd"
 var pathArray = strings.Split(path, "\\")
 
@@ -58,12 +58,10 @@ func main() {
 				command := words[0]
 				switch command {
 				// Arithmetic commands
-				case "add": // Integer addition (2's complement)
-					AddTranslation()
-				case "sub": // Integer subtraction (2's complement)
-					SubTranslation()
-				case "neg": // Arithmetic negation (2's complement)
-					NegTranslation()
+				case "add":
+				case "sub":
+				case "neg":
+					WriteArithmetic(command)
 				// Boolean commands
 				case "eq": // Equality
 					EqTranslation()
@@ -81,13 +79,12 @@ func main() {
 				case "push":
 					segment := words[1]
 					i := words[2]
-					PushTranslation(segment, i)
+					WritePush(segment, i)
 				case "pop":
 					segment := words[1]
 					i := words[2]
-					PopTranslation(segment, i)
+					WritePop(segment, i)
 				}
-
 			}
 
 			if err := scanner.Err(); err != nil {
@@ -100,31 +97,23 @@ func main() {
 
 }
 
-// AddTranslation Translation of add command (in VM language) to Hack language
-func AddTranslation() {
-	outputFile.WriteString("// add\n")
-	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
-	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D+M\n") // SP--, result=x(*SP)+y
-	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n")          // *SP=result
-	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
-}
-
-// SubTranslation Translation of sub command (in VM language) to Hack language
-func SubTranslation() {
-	outputFile.WriteString("// sub\n")
-	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
-	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D-M\n") // SP--, result=x(*SP)-y
-	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n")          // *SP=result
-	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
-}
-
-// NegTranslation Translation of neg command (in VM language) to Hack language
-func NegTranslation() {
-	outputFile.WriteString("// neg\n")
-	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=M-D\n") // SP--, result=0-y
-	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n")          // *SP=result
-	outputFile.WriteString("@SP\nM=M+1\n")                           // SP++
-
+// WriteArithmetic Translation of arithmetic command (i.e. add, sub or neg) in VM language to Hack language
+func WriteArithmetic(command string) {
+	switch command {
+	case "add": // Integer addition (2's complement)
+		outputFile.WriteString("// add\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D+M\n") // SP--, result=x(*SP)+y
+	case "sub": // Integer subtraction (2's complement)
+		outputFile.WriteString("// sub\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D\n")   // SP--, result=y(*SP)
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D-M\n") // SP--, result=x(*SP)-y
+	case "neg": // Arithmetic negation (2's complement)
+		outputFile.WriteString("// neg\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=M-D\n") // SP--, result=0-y
+	}
+	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n") // *SP=result
+	outputFile.WriteString("@SP\nM=M+1\n")                  // SP++
 }
 
 // EqTranslation Translation of eq command (in VM language) to Hack language
@@ -163,40 +152,36 @@ func NotTranslation() {
 
 }
 
-// PopTranslation Translation of pop command (in VM language) to Hack language
-func PopTranslation(segment string, i string) {
+// WritePop Translation of pop command (in VM language) to Hack language
+func WritePop(segment string, i string) {
 	outputFile.WriteString("// pop " + segment + i + "\n") // general comment for the respective pop command
 	switch segment {
 	// Translation for the command pop local i
 	case "local":
 		outputFile.WriteString("@" + i + "\nD=A\n@LCL\nD=D+M\n@addr\nM=D\n") // addr=LCL+i
 		outputFile.WriteString("@SP\nM=M-1\n")                               // SP--
-		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")           // *addr=*SP
 	// Translation for the command pop argument i
 	case "argument":
 		outputFile.WriteString("@" + i + "\nD=A\n@ARG\nD=D+M\n@addr\nM=D\n") // addr=ARG+i
 		outputFile.WriteString("@SP\nM=M-1\n")                               // SP--
-		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")           // *addr=*SP
 	// Translation for the command pop this i
 	case "this":
 		outputFile.WriteString("@" + i + "\nD=A\n@THIS\nD=D+M\n@addr\nM=D\n") // addr=THIS+i
 		outputFile.WriteString("@SP\nM=M-1\n")                                // SP--
-		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")            // *addr=*SP
 	// Translation for the command pop that i
 	case "that":
 		outputFile.WriteString("@" + i + "\nD=A\n@THAT\nD=D+M\n@addr\nM=D\n") // addr=THAT+i
 		outputFile.WriteString("@SP\nM=M-1\n")                                // SP--
-		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")            // *addr=*SP
 	// Translation for the command pop static i
 	case "static":
 		outputFile.WriteString("@SP\nM=M-1\n")                       // SP--
 		outputFile.WriteString("@SP\nA=M\nD=M\n")                    // D=*SP
 		outputFile.WriteString("@" + fileName + "." + i + "\nM=D\n") // static i = D
+		os.Exit(0)
 	// Translation for the command pop temp i
 	case "temp":
 		outputFile.WriteString("@" + i + "\nD=A\n@5\nD=D+A\n@addr\nM=D\n") // addr=5+i
 		outputFile.WriteString("@SP\nM=M-1\n")                             // SP--
-		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n")         // *addr=*SP
 	// Translation for the command pop pointer 0/1
 	case "pointer":
 		outputFile.WriteString("@SP\nM=M-1\n") // SP--
@@ -205,49 +190,43 @@ func PopTranslation(segment string, i string) {
 		} else { // i == "1"
 			outputFile.WriteString("@THAT\nD=M\n@addr\nM=D\n") // addr=THAT
 		}
-		outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n") // *addr=*SP
 	}
+	// For all pop commands (except for static) add the value to the according address:
+	outputFile.WriteString("@SP\nA=M\nD=M\n@addr\nA=M\nM=D\n") // *addr=*SP
 }
 
-// PushTranslation Translation of push command (in VM language) to Hack language
-func PushTranslation(segment string, i string) {
+// WritePush Translation of push command (in VM language) to Hack language
+func WritePush(segment string, i string) {
 	outputFile.WriteString("// push " + segment + i + "\n") // general comment for the respective push command
 	switch segment {
 	// Translation for the command push local i
 	case "local":
 		outputFile.WriteString("@" + i + "\nD=A\n@LCL\nD=D+M\n@addr\nM=D\n") // addr=LCL+i
 		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                  // *SP=*addr
-		outputFile.WriteString("@SP\nM=M+1\n")                               // SP++
 	// Translation for the command push argument i
 	case "argument":
 		outputFile.WriteString("@" + i + "\nD=A\n@ARG\nD=D+M\n@addr\nM=D\n") // addr=ARG+i
 		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                  // *SP=*addr
-		outputFile.WriteString("@SP\nM=M+1\n")                               // SP++
 	// Translation for the command push this i
 	case "this":
 		outputFile.WriteString("@" + i + "\nD=A\n@THIS\nD=D+M\n@addr\nM=D\n") // addr=THIS+i
 		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                   // *SP=*addr
-		outputFile.WriteString("@SP\nM=M+1\n")                                // SP++
 	// Translation for the command push that i
 	case "that":
 		outputFile.WriteString("@" + i + "\nD=A\n@THAT\nD=D+M\n@addr\nM=D\n") // addr=THAT+i
 		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                   // *SP=*addr
-		outputFile.WriteString("@SP\nM=M+1\n")                                // SP++
 	// Translation for the command push constant i
 	case "constant":
 		outputFile.WriteString("@" + i + "\nD=A\n") // D=i
 		outputFile.WriteString("@SP\nA=M\nM=D\n")   // *SP=D
-		outputFile.WriteString("@SP\nM=M+1\n")      // SP++
 	// Translation for the command push static i
 	case "static":
 		outputFile.WriteString("@" + fileName + "." + i + "\nD=M\n") // D = static i
 		outputFile.WriteString("@SP\nA=M\nM=D\n")                    // *SP=D
-		outputFile.WriteString("@SP\nM=M+1\n")                       // SP++
 	// Translation for the command push temp i
 	case "temp":
 		outputFile.WriteString("@" + i + "\nD=A\n@5\nD=D+A\n@addr\nM=D\n") // addr=5+i
 		outputFile.WriteString("A=M\nD=M\n@SP\nA=M\nM=D\n")                // *SP=*addr
-		outputFile.WriteString("@SP\nM=M+1\n")                             // SP++
 	// Translation for the command push pointer 0/1
 	case "pointer":
 		if i == "0" {
@@ -256,8 +235,9 @@ func PushTranslation(segment string, i string) {
 			outputFile.WriteString("@THAT\nD=M\n") // D=*THAT
 		}
 		outputFile.WriteString("@SP\nA=M\nM=D\n") // *SP=D
-		outputFile.WriteString("@SP\nM=M+1\n")    // SP++
 	}
+	// For all push commands increment stack pointer at the end
+	outputFile.WriteString("@SP\nM=M+1\n") // SP++
 }
 
 func check(e error) {
