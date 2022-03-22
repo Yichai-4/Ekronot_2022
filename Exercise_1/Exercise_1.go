@@ -19,7 +19,7 @@ import (
 
 // Receive the path in program argument
 // var path = os.Args[1] // receiving the path as cli parameter
-var path = "C:\\Ekronot_2022\\nand2tetris\\projects\\07\\StackArithmetic\\SimpleAdd"
+var path = "C:\\Ekronot_2022\\nand2tetris\\projects\\07\\MemoryAccess\\BasicTest"
 var pathArray = strings.Split(path, "\\")
 
 // Create the output file with the according name
@@ -58,25 +58,25 @@ func main() {
 				case "sub":
 				case "neg":
 					WriteArithmetic(command)
-				// Logical commands - Bit-wise
-				case "and":
-				case "or":
-				case "not":
-					WriteLogical(command)
 				// Boolean commands
 				case "eq": // Equality
 				case "gt": // Greater than
 				case "lt": // Less than
 					WriteBoolean(command)
+				// Logical commands - Bit-wise
+				case "and":
+				case "or":
+				case "not":
+					WriteLogical(command)
 				// Memory access commands
-				case "push":
-					segment := words[1]
-					i := words[2]
-					WritePush(segment, i)
 				case "pop":
 					segment := words[1]
 					i := words[2]
 					WritePop(segment, i)
+				case "push":
+					segment := words[1]
+					i := words[2]
+					WritePush(segment, i)
 				}
 			}
 			// Ends the program with an infinite loop
@@ -85,11 +85,9 @@ func main() {
 			if err := scanner.Err(); err != nil {
 				log.Fatal(err)
 			}
-
 		}
 		return nil
 	})
-
 }
 
 // WriteArithmetic Translation of arithmetic command (i.e. add, sub and neg) in VM language to Hack language
@@ -109,23 +107,6 @@ func WriteArithmetic(command string) {
 	}
 	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n") // *SP=result
 	outputFile.WriteString("@SP\nM=M+1\n")                  // SP++
-}
-
-// WriteLogical Translation of logical command (i.e. and, or and not) in VM language to Hack language
-func WriteLogical(command string) {
-	switch command {
-	case "and":
-		outputFile.WriteString("// and\n")
-		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // D=STACK[SP]
-		outputFile.WriteString("A=A-1\nM=D&M\n")         // STACK[SP]=x and y
-	case "or":
-		outputFile.WriteString("// or\n")
-		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // D=STACK[SP]
-		outputFile.WriteString("A=A-1\nM=D||M\n")        // STACK[SP]=x or y
-	case "not":
-		outputFile.WriteString("// not\n")
-		outputFile.WriteString("@SP\nA=M-1\nM=!M\n") // STACK[SP]=not(x)
-	}
 }
 
 // WriteBoolean Translation of boolean command (i.e. eq, gt or lt) in VM language to Hack language
@@ -157,9 +138,26 @@ func WriteBoolean(command string) {
 	outputFile.WriteString("(IF_FALSE)\n")       // Declaring a label
 }
 
+// WriteLogical Translation of logical command (i.e. and, or and not) in VM language to Hack language
+func WriteLogical(command string) {
+	switch command {
+	case "and":
+		outputFile.WriteString("// and\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // D=STACK[SP]
+		outputFile.WriteString("A=A-1\nM=D&M\n")         // STACK[SP]=x and y
+	case "or":
+		outputFile.WriteString("// or\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // D=STACK[SP]
+		outputFile.WriteString("A=A-1\nM=D||M\n")        // STACK[SP]=x or y
+	case "not":
+		outputFile.WriteString("// not\n")
+		outputFile.WriteString("@SP\nA=M-1\nM=!M\n") // STACK[SP]=not(x)
+	}
+}
+
 // WritePop Translation of pop command (in VM language) to Hack language
 func WritePop(segment string, i string) {
-	outputFile.WriteString("// pop " + segment + i + "\n") // general comment for the respective pop command
+	outputFile.WriteString("// pop " + segment + " " + i + "\n") // general comment for the respective pop command
 	switch segment {
 	// Translation for the command pop local i
 	case "local":
@@ -202,7 +200,7 @@ func WritePop(segment string, i string) {
 
 // WritePush Translation of push command (in VM language) to Hack language
 func WritePush(segment string, i string) {
-	outputFile.WriteString("// push " + segment + i + "\n") // general comment for the respective push command
+	outputFile.WriteString("// push " + segment + " " + i + "\n") // general comment for the respective push command
 	switch segment {
 	// Translation for the command push local i
 	case "local":
