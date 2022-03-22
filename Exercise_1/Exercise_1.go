@@ -58,19 +58,16 @@ func main() {
 				case "sub":
 				case "neg":
 					WriteArithmetic(command)
+				// Logical commands - Bit-wise
+				case "and":
+				case "or":
+				case "not":
+					WriteLogical(command)
 				// Boolean commands
 				case "eq": // Equality
-					EqTranslation()
 				case "gt": // Greater than
-					GtTranslation()
 				case "lt": // Less than
-					LtTranslation()
-				case "and": // Bit-wise
-					AndTranslation()
-				case "or": // Bit-wise
-					OrTranslation()
-				case "not": // Bit-wise
-					NotTranslation()
+					WriteBoolean(command)
 				// Memory access commands
 				case "push":
 					segment := words[1]
@@ -93,7 +90,7 @@ func main() {
 
 }
 
-// WriteArithmetic Translation of arithmetic command (i.e. add, sub or neg) in VM language to Hack language
+// WriteArithmetic Translation of arithmetic command (i.e. add, sub and neg) in VM language to Hack language
 func WriteArithmetic(command string) {
 	switch command {
 	case "add": // Integer addition (2's complement)
@@ -106,46 +103,56 @@ func WriteArithmetic(command string) {
 		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=D-M\n") // SP--, result=x(*SP)-y
 	case "neg": // Arithmetic negation (2's complement)
 		outputFile.WriteString("// neg\n")
-		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=M-D\n") // SP--, result=0-y
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n@result\nM=M-D\n") // SP--, result=0-x
 	}
 	outputFile.WriteString("@result\nD=M\n@SP\nA=M\nM=D\n") // *SP=result
 	outputFile.WriteString("@SP\nM=M+1\n")                  // SP++
 }
 
-// EqTranslation Translation of eq command (in VM language) to Hack language
-func EqTranslation() {
-	outputFile.WriteString("// eq\n")
-
+// WriteLogical Translation of logical command (i.e. and, or and not) in VM language to Hack language
+func WriteLogical(command string) {
+	switch command {
+	case "and":
+		outputFile.WriteString("// and\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // D=STACK[SP]
+		outputFile.WriteString("A=A-1\nM=D&M\n")         // STACK[SP]=x and y
+	case "or":
+		outputFile.WriteString("// or\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // D=STACK[SP]
+		outputFile.WriteString("A=A-1\nM=D||M\n")        // STACK[SP]=x or y
+	case "not":
+		outputFile.WriteString("// not\n")
+		outputFile.WriteString("@SP\nA=M-1\nM=!M\n") // STACK[SP]=not(x)
+	}
 }
 
-// GtTranslation Translation of gt command (in VM language) to Hack language
-func GtTranslation() {
-	outputFile.WriteString("// gt\n")
-
-}
-
-// LtTranslation Translation of lt command (in VM language) to Hack language
-func LtTranslation() {
-	outputFile.WriteString("// lt\n")
-
-}
-
-// AndTranslation Translation of and command (in VM language) to Hack language
-func AndTranslation() {
-	outputFile.WriteString("// and\n")
-
-}
-
-// OrTranslation Translation of or command (in VM language) to Hack language
-func OrTranslation() {
-	outputFile.WriteString("// or\n")
-
-}
-
-// NotTranslation Translation of not command (in VM language) to Hack language
-func NotTranslation() {
-	outputFile.WriteString("// not\n")
-
+// WriteBoolean Translation of boolean command (i.e. eq, gt or lt) in VM language to Hack language
+func WriteBoolean(command string) {
+	switch command {
+	case "eq": // Equality
+		outputFile.WriteString("// eq\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // SP--, D=STACK[SP]
+		outputFile.WriteString("@SP\nA=M-1\nD=D-M\n")    // D=D-STACK[SP-1]
+		outputFile.WriteString("@IF_TRUE\nD;JEQ\n")      // jump to (IF_TRUE) if D=0
+	case "gt": // Greater than
+		outputFile.WriteString("// gt\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // SP--, D=STACK[SP]
+		outputFile.WriteString("@SP\nA=M-1\nD=D-M\n")    // D=D-STACK[SP-1]
+		outputFile.WriteString("@IF_TRUE\nD;JGT\n")      // jump to (IF_TRUE) if D>0
+	case "lt": // Less than
+		outputFile.WriteString("// lt\n")
+		outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n") // SP--, D=STACK[SP]
+		outputFile.WriteString("@SP\nA=M-1\nD=D-M\n")    // D=D-STACK[SP-1]
+		outputFile.WriteString("@IF_TRUE\nD;JLT\n")      // jump to (IF_TRUE) if D<0
+	}
+	// If the condition is not met
+	outputFile.WriteString("@SP\nA=M-1\nM=0\n") // *SP=0
+	outputFile.WriteString("@IF_FALSE\n")       // LABEL
+	outputFile.WriteString("0 ; JMP\n")         // unconditional jump
+	// Otherwise
+	outputFile.WriteString("(IF_TRUE)\n")        // Declaring a label
+	outputFile.WriteString("@SP\nA=M-1\nM=-1\n") // *SP=-1
+	outputFile.WriteString("(IF_FALSE)\n")       // Declaring a label
 }
 
 // WritePop Translation of pop command (in VM language) to Hack language
