@@ -41,7 +41,7 @@ func main() {
 			fmt.Printf("File Name: %s\n", fileName)
 			// removes the extension from the file name and prints it
 			name := strings.TrimRight(fileName, extension)
-			outputFile.WriteString("// " + name + ":\n")
+			outputFile.WriteString("// Program: " + name + ".asm\n")
 
 			inputFile, err := os.Open(path)
 			check(err)
@@ -79,6 +79,8 @@ func main() {
 					WritePop(segment, i)
 				}
 			}
+			// Ends the program with an infinite loop
+			outputFile.WriteString("(END)\n@END\n0;JMP\n")
 
 			if err := scanner.Err(); err != nil {
 				log.Fatal(err)
