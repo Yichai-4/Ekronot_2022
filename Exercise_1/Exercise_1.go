@@ -20,7 +20,6 @@ import (
 
 // Receive the path in program argument
 var path = os.Args[1] // receiving the path as cli parameter
-//var path = "C:\\Ekronot_2022\\nand2tetris\\projects\\07\\MemoryAccess\\StaticTest"
 
 var pathArray = strings.Split(path, "\\")
 
@@ -28,6 +27,7 @@ var pathArray = strings.Split(path, "\\")
 var fileName = pathArray[len(pathArray)-1]
 var outputFile, _ = os.Create(fileName + ".asm")
 
+// Global variable in order to distinguish the different labels for the boolean operations
 var labelCount = 0
 
 func main() {
