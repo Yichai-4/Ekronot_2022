@@ -255,19 +255,19 @@ func WritePush(segment string, i string) {
 // WriteLabel Translation of label command in VM language to Hack language
 func WriteLabel(labelName string) {
 	outputFile.WriteString("// label\n")
-	outputFile.WriteString("(" + labelName + ")")
+	outputFile.WriteString("(" + labelName + ")\n")
 }
 
 // WriteGoto Translation of goto command in VM language to Hack language
 func WriteGoto(label string) {
-	outputFile.WriteString("// goto\n")
+	outputFile.WriteString("// goto " + label + "\n")
 	outputFile.WriteString("@" + label + "\n0;JMP\n") // unconditional jump
 }
 
 // WriteIf Translation of if-goto command in VM language to Hack language
 func WriteIf(label string) {
-	outputFile.WriteString("// if-goto\n")
-	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\nD;JMP\n") // SP--, D= *SP, if D=0 jump to label
+	outputFile.WriteString("// if-goto " + label + "\n")
+	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\nD;JNE\n") // SP--, D=*SP, if D=0 jump to label
 }
 
 func check(e error) {
