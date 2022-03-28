@@ -254,7 +254,7 @@ func WritePush(segment string, i string) {
 
 // WriteLabel Translation of label command in VM language to Hack language
 func WriteLabel(labelName string) {
-	outputFile.WriteString("// label\n")
+	outputFile.WriteString("// label " + labelName + "\n")
 	outputFile.WriteString("(" + labelName + ")\n")
 }
 
