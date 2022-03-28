@@ -267,7 +267,8 @@ func WriteGoto(label string) {
 // WriteIf Translation of if-goto command in VM language to Hack language
 func WriteIf(label string) {
 	outputFile.WriteString("// if-goto " + label + "\n")
-	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\nD;JNE\n") // SP--, D=*SP, if D=0 jump to label
+	outputFile.WriteString("@SP\nM=M-1\nA=M\nD=M\n")  // SP--, D=*SP
+	outputFile.WriteString("@" + label + "\nD;JNE\n") // if D!=0 jump to label
 }
 
 func check(e error) {
