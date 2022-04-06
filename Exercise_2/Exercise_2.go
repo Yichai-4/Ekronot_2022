@@ -53,11 +53,10 @@ func main() {
 
 			scanner := bufio.NewScanner(inputFile)
 
-			/*
-				// Bootstrap code
-				outputFile.WriteString("@256\nD=A\n@SP\nM=D\n") // SP=256
-				WriteCall("Sys.init", 0)
-			*/
+			// Bootstrap code
+			outputFile.WriteString("@256\nD=A\n@SP\nM=D\n") // SP=256
+			WriteCall("Sys.init", 0)
+
 			for scanner.Scan() {
 				words := strings.Split(scanner.Text(), " ")
 				command := words[0]
@@ -307,26 +306,27 @@ func WriteCall(functionName string, numArgs int) {
 	outputFile.WriteString("// call " + functionName + " " + numArgsStr + "\n")
 
 	// Saving the caller's frame
-	WritePush("argument", numArgsStr) // push returnAddress
-	WritePush("local", "0")           // push LCL - Saves LCL of the caller
-	WritePush("argument", "0")        // push ARG - Saves ARG of the caller
-	WritePush("this", "0")            // push THIS - Saves THIS of the caller
-	WritePush("that", "0")            // push THAT - Saves THAT of the caller
+	// push returnAddress
+	outputFile.WriteString("@" + functionName + ".returnAddress\nD=A\n")
+	outputFile.WriteString("@SP\nA=M\nM=D\n") // *SP=*returnAddress
+	outputFile.WriteString("@SP\nM=M+1\n")    // SP++
+	WritePush("local", "0")                   // push LCL - Saves LCL of the caller
+	WritePush("argument", "0")                // push ARG - Saves ARG of the caller
+	WritePush("this", "0")                    // push THIS - Saves THIS of the caller
+	WritePush("that", "0")                    // push THAT - Saves THAT of the caller
 
 	// Repositions ARG: ARG = SP-5-nArgs
-	// outputFile.WriteString("@SP\nD=M\nM=M+1\n") necessarily ?
-	WritePush("constant", "5")
-	WriteArithmetic("sub")
-	WritePush("constant", numArgsStr)
-	WriteArithmetic("sub")
-	outputFile.WriteString("@SP\nD=M\n@ARG\nM=D\n")
+	outputFile.WriteString("@SP\nD=M\n@5\nD=D-A\n")        // D = SP-5
+	outputFile.WriteString("@" + numArgsStr + "\nD=D-A\n") // D = D-nArgs
+	outputFile.WriteString("@ARG\nM=D\n")                  // ARG = D
+
 	// Repositions LCL: LCL = SP
 	outputFile.WriteString("@SP\nD=M\n@LCL\nM=D\n")
 
 	// Transfers control to the called function
 	WriteGoto(functionName) // goto functionName
 	// Declares a label for the return-address
-	WriteLabel("returnAddress")
+	WriteLabel(functionName + ".returnAddress")
 }
 
 // WriteReturn Writes the assembly code that is the translation of the return command
