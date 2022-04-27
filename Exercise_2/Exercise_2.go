@@ -20,15 +20,15 @@ import (
 
 // Receive the path in program argument
 var path = os.Args[1] // receiving the path as cli parameter
-
 var pathArray = strings.Split(path, "\\")
 
 // Create the output file with the according name
 var fileName = pathArray[len(pathArray)-1]
 var outputFile, _ = os.Create(fileName + ".asm")
 
-// Global variable in order to distinguish the different labels for the boolean operations
+// Global variable in order to distinguish the different labels (for the boolean and call operations)
 var labelCount = 0
+var callCount = 0
 
 func main() {
 	// Close the file "outputFile" at the end of the main function
@@ -45,6 +45,12 @@ func main() {
 			fmt.Printf("File Name: %s\n", fileName)
 			// removes the extension from the file name and prints it
 			name := strings.TrimRight(fileName, extension)
+
+			// Bootstrap code
+			outputFile.WriteString("// Bootstrap code\n")
+			outputFile.WriteString("@256\nD=A\n@SP\nM=D\n") // SP=256
+			WriteCall("Sys.init", 0)
+
 			outputFile.WriteString("// Program: " + name + ".asm\n")
 
 			inputFile, err := os.Open(path)
@@ -52,10 +58,6 @@ func main() {
 			defer inputFile.Close()
 
 			scanner := bufio.NewScanner(inputFile)
-
-			// Bootstrap code
-			outputFile.WriteString("@256\nD=A\n@SP\nM=D\n") // SP=256
-			WriteCall("Sys.init", 0)
 
 			for scanner.Scan() {
 				words := strings.Split(scanner.Text(), " ")
@@ -74,11 +76,11 @@ func main() {
 				case "pop":
 					segment := words[1]
 					i := words[2]
-					WritePop(segment, i)
+					WritePop(segment, i, name)
 				case "push":
 					segment := words[1]
 					i := words[2]
-					WritePush(segment, i)
+					WritePush(segment, i, name)
 				// Program flow commands
 				case "label":
 					labelName := words[1]
@@ -113,6 +115,7 @@ func main() {
 		}
 		return nil
 	})
+
 }
 
 // WriteArithmetic Translation of arithmetic command (i.e. add, sub and neg) in VM language to Hack language
@@ -182,7 +185,7 @@ func WriteLogical(command string) {
 }
 
 // WritePop Translation of pop command (in VM language) to Hack language
-func WritePop(segment string, i string) {
+func WritePop(segment string, i string, programName string) {
 	outputFile.WriteString("// pop " + segment + " " + i + "\n") // general comment for the respective pop command
 	switch segment {
 	// Translation for the command pop local i
@@ -203,9 +206,9 @@ func WritePop(segment string, i string) {
 		outputFile.WriteString("@SP\nM=M-1\n")                                // SP--
 	// Translation for the command pop static i
 	case "static":
-		outputFile.WriteString("@SP\nM=M-1\n")                       // SP--
-		outputFile.WriteString("@SP\nA=M\nD=M\n")                    // D=*SP
-		outputFile.WriteString("@" + fileName + "." + i + "\nM=D\n") // static i = D
+		outputFile.WriteString("@SP\nM=M-1\n")                                           // SP--
+		outputFile.WriteString("@SP\nA=M\nD=M\n")                                        // D=*SP
+		outputFile.WriteString("@" + programName + "." + fileName + "." + i + "\nM=D\n") // static i = D
 		return
 	// Translation for the command pop temp i
 	case "temp":
@@ -225,7 +228,7 @@ func WritePop(segment string, i string) {
 }
 
 // WritePush Translation of push command (in VM language) to Hack language
-func WritePush(segment string, i string) {
+func WritePush(segment string, i string, programName string) {
 	outputFile.WriteString("// push " + segment + " " + i + "\n") // general comment for the respective push command
 	switch segment {
 	// Translation for the command push local i
@@ -250,8 +253,8 @@ func WritePush(segment string, i string) {
 		outputFile.WriteString("@SP\nA=M\nM=D\n")   // *SP=D
 	// Translation for the command push static i
 	case "static":
-		outputFile.WriteString("@" + fileName + "." + i + "\nD=M\n") // D = static i
-		outputFile.WriteString("@SP\nA=M\nM=D\n")                    // *SP=D
+		outputFile.WriteString("@" + programName + "." + fileName + "." + i + "\nD=M\n") // D = static i
+		outputFile.WriteString("@SP\nA=M\nM=D\n")                                        // *SP=D
 	// Translation for the command push temp i
 	case "temp":
 		outputFile.WriteString("@" + i + "\nD=A\n@5\nD=D+A\n@addr\nM=D\n") // addr=5+i
@@ -296,24 +299,34 @@ func WriteFunction(functionName string, numLocals int) {
 
 	// Repeat numLocals times: push 0
 	for i := 0; i < numLocals; i++ {
-		WritePush("constant", "0") // initializes the local variables to 0
+		WritePush("constant", "0", "") // initializes the local variables to 0
 	}
 }
 
 // WriteCall Writes the assembly code that is the translation of the call command
 func WriteCall(functionName string, numArgs int) {
+	callCount = callCount + 1
+	callCountStr := strconv.Itoa(callCount)
 	numArgsStr := strconv.Itoa(numArgs)
 	outputFile.WriteString("// call " + functionName + " " + numArgsStr + "\n")
 
 	// Saving the caller's frame
 	// push returnAddress
-	outputFile.WriteString("@" + functionName + ".returnAddress\nD=A\n")
+	outputFile.WriteString("@" + functionName + ".returnAddress_" + callCountStr + "\nD=A\n")
 	outputFile.WriteString("@SP\nA=M\nM=D\n") // *SP=*returnAddress
 	outputFile.WriteString("@SP\nM=M+1\n")    // SP++
-	WritePush("local", "0")                   // push LCL - Saves LCL of the caller
-	WritePush("argument", "0")                // push ARG - Saves ARG of the caller
-	WritePush("this", "0")                    // push THIS - Saves THIS of the caller
-	WritePush("that", "0")                    // push THAT - Saves THAT of the caller
+	// push LCL - Saves LCL of the caller
+	outputFile.WriteString("@LCL\nD=M\n@SP\nA=M\nM=D\n") // *SP=*returnAddress
+	outputFile.WriteString("@SP\nM=M+1\n")               // SP++
+	// push ARG - Saves ARG of the caller
+	outputFile.WriteString("@ARG\nD=M\n@SP\nA=M\nM=D\n") // *SP=*returnAddress
+	outputFile.WriteString("@SP\nM=M+1\n")               // SP++
+	// push THIS - Saves THIS of the caller
+	outputFile.WriteString("@THIS\nD=M\n@SP\nA=M\nM=D\n") // *SP=*returnAddress
+	outputFile.WriteString("@SP\nM=M+1\n")                // SP++
+	// push THAT - Saves THAT of the caller
+	outputFile.WriteString("@THAT\nD=M\n@SP\nA=M\nM=D\n") // *SP=*returnAddress
+	outputFile.WriteString("@SP\nM=M+1\n")                // SP++
 
 	// Repositions ARG: ARG = SP-5-nArgs
 	outputFile.WriteString("@SP\nD=M\n@5\nD=D-A\n")        // D = SP-5
@@ -326,7 +339,7 @@ func WriteCall(functionName string, numArgs int) {
 	// Transfers control to the called function
 	WriteGoto(functionName) // goto functionName
 	// Declares a label for the return-address
-	WriteLabel(functionName + ".returnAddress")
+	WriteLabel(functionName + ".returnAddress_" + callCountStr)
 }
 
 // WriteReturn Writes the assembly code that is the translation of the return command
@@ -339,7 +352,7 @@ func WriteReturn() {
 	outputFile.WriteString("@endFrame\nD=M\n@5\nD=D-A\n") // D = endFrame-5
 	outputFile.WriteString("A=D\nD=M\n@retAddr\nM=D\n")   // retAddr = *(endFrame-5)
 
-	WritePop("argument", "0")                         // *ARG=pop()
+	WritePop("argument", "0", "")                     // *ARG=pop()
 	outputFile.WriteString("@ARG\nD=M+1\n@SP\nM=D\n") // SP = ARG + 1
 	// Restores caller's frame
 	outputFile.WriteString("@endFrame\nA=M-1\nD=M\n@THAT\nM=D\n")          // THAT=*(endFrame-1)
