@@ -34,6 +34,8 @@ func main() {
 	// Close the file "outputFile" at the end of the main function
 	defer outputFile.Close()
 
+	WriteInit() // Bootstrap code
+
 	// Go through the file and performs some operations
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -43,14 +45,8 @@ func main() {
 		extension := filepath.Ext(fileName)
 		if extension == ".vm" {
 			fmt.Printf("File Name: %s\n", fileName)
-			// removes the extension from the file name and prints it
+			// removes the extension from the file name and writes it
 			name := strings.TrimRight(fileName, extension)
-
-			// Bootstrap code
-			outputFile.WriteString("// Bootstrap code\n")
-			outputFile.WriteString("@256\nD=A\n@SP\nM=D\n") // SP=256
-			WriteCall("Sys.init", 0)
-
 			outputFile.WriteString("// Program: " + name + ".asm\n")
 
 			inputFile, err := os.Open(path)
@@ -106,9 +102,6 @@ func main() {
 					WriteReturn()
 				}
 			}
-			// Ends the program with an infinite loop
-			outputFile.WriteString("(END)\n@END\n0;JMP\n")
-
 			if err := scanner.Err(); err != nil {
 				log.Fatal(err)
 			}
@@ -270,6 +263,13 @@ func WritePush(segment string, i string, programName string) {
 	}
 	// For all push commands increment stack pointer at the end
 	outputFile.WriteString("@SP\nM=M+1\n") // SP++
+}
+
+// WriteInit Writes the assembly code that effects the VM initialization also called "bootstrap code"
+func WriteInit() {
+	outputFile.WriteString("// Bootstrap code\n")
+	outputFile.WriteString("@256\nD=A\n@SP\nM=D\n") // SP=256
+	WriteCall("Sys.init", 0)
 }
 
 // WriteLabel Translation of label command in VM language to Hack language
