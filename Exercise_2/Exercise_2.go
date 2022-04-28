@@ -108,7 +108,6 @@ func main() {
 		}
 		return nil
 	})
-
 }
 
 // WriteArithmetic Translation of arithmetic command (i.e. add, sub and neg) in VM language to Hack language
