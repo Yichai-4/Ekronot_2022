@@ -80,14 +80,19 @@ func Tokenize(outputFile *os.File, inputFilePath *os.File) {
 		for _, word := range words {
 			if stringInSlice(word, keyword) {
 				tokenClassification = "keyword"
+				outputFile.WriteString("< " + tokenClassification + " >")
+				outputFile.WriteString(currentToken)
+				outputFile.WriteString("</ " + tokenClassification + " >\n")
 			}
 			if stringInSlice(word, symbol) {
 				tokenClassification = "symbol"
+				outputFile.WriteString("< " + tokenClassification + " >")
+				outputFile.WriteString(currentToken)
+				outputFile.WriteString("</ " + tokenClassification + " >\n")
 			}
+
 		}
-		outputFile.WriteString("< " + tokenClassification + " >")
-		outputFile.WriteString(currentToken)
-		outputFile.WriteString("</ " + tokenClassification + " >\n")
+
 	}
 	outputFile.WriteString("</tokens>")
 
