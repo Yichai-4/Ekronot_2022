@@ -60,37 +60,34 @@ func main() {
 }
 
 func Tokenize(outputFile *os.File, inputFilePath *os.File) {
-	//NewTokenizer(outputFile, path)
 	outputFile.WriteString("<tokens>\n")
 
 	data := bufio.NewScanner(inputFilePath)
 	var tokenClassification string
+
 	for data.Scan() {
-		lines := strings.Split(data.Text(), "\n")
-		for _, line := range lines {
-			if line == "" {
-			}
-		}
+		/*
+			lines := strings.Split(data.Text(), "\n")
+			for _, line := range lines {
+				if line == "" {
+				}
+			}*/
 		words := strings.Split(data.Text(), " ")
 		firstWord := words[0]
 		if firstWord == "//" || firstWord == "/*" || firstWord == "/**" {
 			continue
 		}
-		currentToken := data.Text()
 		for _, word := range words {
-			if stringInSlice(word, keyword) {
+			currentToken := word
+			if stringInList(word, keyword) {
 				tokenClassification = "keyword"
-				outputFile.WriteString("< " + tokenClassification + " >")
-				outputFile.WriteString(currentToken)
-				outputFile.WriteString("</ " + tokenClassification + " >\n")
 			}
-			if stringInSlice(word, symbol) {
+			if stringInList(word, symbol) {
 				tokenClassification = "symbol"
-				outputFile.WriteString("< " + tokenClassification + " >")
-				outputFile.WriteString(currentToken)
-				outputFile.WriteString("</ " + tokenClassification + " >\n")
 			}
-
+			outputFile.WriteString("<" + tokenClassification + "> ")
+			outputFile.WriteString(currentToken)
+			outputFile.WriteString(" </" + tokenClassification + ">\n")
 		}
 
 	}
@@ -101,7 +98,7 @@ func Tokenize(outputFile *os.File, inputFilePath *os.File) {
 	}
 }
 
-func stringInSlice(a string, list []string) bool {
+func stringInList(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
 			return true
