@@ -18,8 +18,10 @@ import (
 )
 
 // Constants
+var keyword = []string{"class", "constructor", "function", "method", "field", "static", "var",
+	"int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"}
 
-//var keywords = {"class"}
+var symbol = []string{"{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
 
 // Receive the path in program argument
 var path = os.Args[1] // receiving the path as cli parameter
@@ -27,11 +29,13 @@ var pathArray = strings.Split(path, "\\")
 
 // Create the output file with the according name
 var directoryName = pathArray[len(pathArray)-1]
-var outputFile, _ = os.Create(directoryName + ".xml")
+var tokensFile, _ = os.Create("my" + directoryName + "T.xml")
+
+//var parserFile, _  = os.Create("my" + directoryName + ".xml")
 
 func main() {
 	// Close the file "outputFile" at the end of the main function
-	defer outputFile.Close()
+	defer tokensFile.Close()
 
 	// Go through the file and performs some operations
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
@@ -44,29 +48,59 @@ func main() {
 			fmt.Printf("File Name: %s\n", fileName)
 			// removes the extension from the file name and prints it
 			name := strings.TrimRight(fileName, extension)
-			outputFile.WriteString(name + "\n")
+			tokensFile.WriteString("//" + name + "\n")
+			inputJackFile, _ := os.Open(path)
+			defer inputJackFile.Close()
 
-			inputFile, err := os.Open(path)
-			check(err)
-			defer inputFile.Close()
-
-			scanner := bufio.NewScanner(inputFile)
-
-			for scanner.Scan() {
-				outputFile.WriteString("<test> ok </test>\n")
-			}
-
-			if err := scanner.Err(); err != nil {
-				log.Fatal(err)
-			}
+			Tokenize(tokensFile, inputJackFile)
 
 		}
 		return nil
 	})
 }
 
-func check(e error) {
-	if e != nil {
-		panic(e)
+func Tokenize(outputFile *os.File, inputFilePath *os.File) {
+	//NewTokenizer(outputFile, path)
+	outputFile.WriteString("<tokens>\n")
+
+	data := bufio.NewScanner(inputFilePath)
+	var tokenClassification string
+	for data.Scan() {
+		lines := strings.Split(data.Text(), "\n")
+		for _, line := range lines {
+			if line == "" {
+			}
+		}
+		words := strings.Split(data.Text(), " ")
+		firstWord := words[0]
+		if firstWord == "//" || firstWord == "/*" || firstWord == "/**" {
+			continue
+		}
+		currentToken := data.Text()
+		for _, word := range words {
+			if stringInSlice(word, keyword) {
+				tokenClassification = "keyword"
+			}
+			if stringInSlice(word, symbol) {
+				tokenClassification = "symbol"
+			}
+		}
+		outputFile.WriteString("< " + tokenClassification + " >")
+		outputFile.WriteString(currentToken)
+		outputFile.WriteString("</ " + tokenClassification + " >\n")
 	}
+	outputFile.WriteString("</tokens>")
+
+	if err := data.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
