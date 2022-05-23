@@ -76,6 +76,8 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 
 	var tokenClassification string
 
+	var skipLine bool
+
 	for data.Scan() {
 		char := data.Text()
 		_, errInt := strconv.Atoi(char)
@@ -86,6 +88,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			nextChar := data.Text()
 			switch nextChar {
 			case "/": // found "//"
+				skipLine = true
 				data.Scan()
 				nextChar = data.Text()
 				for nextChar != "\n" {
@@ -93,6 +96,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 					nextChar = data.Text()
 				}
 			case "*": // found "/*" or "/**"
+				skipLine = true
 				data.Scan()
 				nextChar = data.Text()
 				for nextChar != "*" {
@@ -105,14 +109,32 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 						}
 					}
 				}
-
+			default:
+				tokenClassification = "symbol"
+				token = char
 			}
 
 		//SkipCommentLines(*outputFile)
-		case stringInList(char, keyword):
+		case char == "_", IsLetter(char): // keyword or identifier
+			skipLine = false
 			//KeywordFunc()
-			tokenClassification = "keyword"
-		case stringInList(char, symbol):
+			token += char
+			data.Scan()
+			nextChar := data.Text()
+			for nextChar == "_" || IsLetter(nextChar) || errInt == nil {
+				token += nextChar
+				data.Scan()
+				nextChar = data.Text()
+			}
+			//char = nextChar
+			if stringInList(token, keyword) {
+				tokenClassification = "keyword"
+			} else {
+				tokenClassification = "identifier"
+			}
+
+		case stringInList(char, symbol): // symbol
+			skipLine = false
 			//SymbolFunc()
 			tokenClassification = "symbol"
 			switch char { // Special characters
@@ -129,6 +151,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			}
 
 		case errInt == nil: // integer constant
+			skipLine = false
 			//IntegerConstantFunc()
 			tokenClassification = "integerConstant"
 			token += char
@@ -140,7 +163,9 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 				data.Scan()
 				_, errInt = strconv.Atoi(data.Text())
 			}
-		case char == "\"":
+
+		case char == "\"": // string constant
+			skipLine = false
 			//IdentifierFunc()
 			tokenClassification = "stringConstant"
 			data.Scan()
@@ -153,28 +178,11 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 		default: // skips spaces
 			continue
 		}
-		outputFile.WriteString("<" + tokenClassification + "> ")
-		outputFile.WriteString(token)
-		outputFile.WriteString(" </" + tokenClassification + ">\n")
-		/*
-			words := strings.Split(data.Text(), " ")
-			firstWord := words[0]
-			if firstWord == "//" || firstWord == "/*" || firstWord == "/**" {
-				continue
-			}
-			for _, word := range words {
-				currentToken := word
-				if stringInList(word, keyword) {
-					tokenClassification = "keyword"
-				}
-				if stringInList(word, symbol) {
-					tokenClassification = "symbol"
-				}
-				outputFile.WriteString("<" + tokenClassification + "> ")
-				outputFile.WriteString(currentToken)
-				outputFile.WriteString(" </" + tokenClassification + ">\n")
-			}*/
-
+		if !skipLine {
+			outputFile.WriteString("<" + tokenClassification + "> ")
+			outputFile.WriteString(token)
+			outputFile.WriteString(" </" + tokenClassification + ">\n")
+		}
 	}
 	outputFile.WriteString("</tokens>")
 
@@ -210,4 +218,13 @@ func stringInList(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func IsLetter(s string) bool {
+	for _, char := range s {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') {
+			return false
+		}
+	}
+	return true
 }
