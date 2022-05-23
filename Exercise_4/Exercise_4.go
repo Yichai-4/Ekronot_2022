@@ -11,9 +11,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -52,43 +54,126 @@ func main() {
 			inputJackFile, _ := os.Open(path)
 			defer inputJackFile.Close()
 
-			Tokenize(tokensFile, inputJackFile)
+			Tokenize(tokensFile, path)
 
 		}
 		return nil
 	})
 }
 
-func Tokenize(outputFile *os.File, inputFilePath *os.File) {
+func Tokenize(outputFile *os.File, inputFilePath string) {
 	outputFile.WriteString("<tokens>\n")
 
-	data := bufio.NewScanner(inputFilePath)
+	//data := bufio.NewScanner(inputFilePath)
+	fileBuffer, err := ioutil.ReadFile(inputFilePath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	inputData := string(fileBuffer)
+	data := bufio.NewScanner(strings.NewReader(inputData))
+	data.Split(bufio.ScanRunes)
+
 	var tokenClassification string
 
 	for data.Scan() {
-		/*
-			lines := strings.Split(data.Text(), "\n")
-			for _, line := range lines {
-				if line == "" {
+		char := data.Text()
+		_, errInt := strconv.Atoi(char)
+		var token = ""
+		switch {
+		case char == "/": // "//" or "/*" or "/**"
+			data.Scan()
+			nextChar := data.Text()
+			switch nextChar {
+			case "/": // found "//"
+				data.Scan()
+				nextChar = data.Text()
+				for nextChar != "\n" {
+					data.Scan()
+					nextChar = data.Text()
 				}
-			}*/
-		words := strings.Split(data.Text(), " ")
-		firstWord := words[0]
-		if firstWord == "//" || firstWord == "/*" || firstWord == "/**" {
+			case "*": // found "/*" or "/**"
+				data.Scan()
+				nextChar = data.Text()
+				for nextChar != "*" {
+					data.Scan()
+					nextChar = data.Text()
+					if nextChar == "*" {
+						data.Scan()
+						if data.Text() == "/" {
+							break
+						}
+					}
+				}
+
+			}
+
+		//SkipCommentLines(*outputFile)
+		case stringInList(char, keyword):
+			//KeywordFunc()
+			tokenClassification = "keyword"
+		case stringInList(char, symbol):
+			//SymbolFunc()
+			tokenClassification = "symbol"
+			switch char { // Special characters
+			case "<":
+				token = "&lt;"
+			case ">":
+				token = "&gt;"
+			case "\"":
+				token = "&quot;"
+			case "&":
+				token = "&amp;"
+			default:
+				token = char
+			}
+
+		case errInt == nil: // integer constant
+			//IntegerConstantFunc()
+			tokenClassification = "integerConstant"
+			token += char
+			data.Scan()
+			_, errInt = strconv.Atoi(data.Text())
+			for errInt == nil {
+				char = data.Text()
+				token += char
+				data.Scan()
+				_, errInt = strconv.Atoi(data.Text())
+			}
+		case char == "\"":
+			//IdentifierFunc()
+			tokenClassification = "stringConstant"
+			data.Scan()
+			char = data.Text()
+			for char != "\"" {
+				token += data.Text()
+				data.Scan()
+				char = data.Text()
+			}
+		default: // skips spaces
 			continue
 		}
-		for _, word := range words {
-			currentToken := word
-			if stringInList(word, keyword) {
-				tokenClassification = "keyword"
+		outputFile.WriteString("<" + tokenClassification + "> ")
+		outputFile.WriteString(token)
+		outputFile.WriteString(" </" + tokenClassification + ">\n")
+		/*
+			words := strings.Split(data.Text(), " ")
+			firstWord := words[0]
+			if firstWord == "//" || firstWord == "/*" || firstWord == "/**" {
+				continue
 			}
-			if stringInList(word, symbol) {
-				tokenClassification = "symbol"
-			}
-			outputFile.WriteString("<" + tokenClassification + "> ")
-			outputFile.WriteString(currentToken)
-			outputFile.WriteString(" </" + tokenClassification + ">\n")
-		}
+			for _, word := range words {
+				currentToken := word
+				if stringInList(word, keyword) {
+					tokenClassification = "keyword"
+				}
+				if stringInList(word, symbol) {
+					tokenClassification = "symbol"
+				}
+				outputFile.WriteString("<" + tokenClassification + "> ")
+				outputFile.WriteString(currentToken)
+				outputFile.WriteString(" </" + tokenClassification + ">\n")
+			}*/
 
 	}
 	outputFile.WriteString("</tokens>")
@@ -96,6 +181,26 @@ func Tokenize(outputFile *os.File, inputFilePath *os.File) {
 	if err := data.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func SkipCommentLines(file os.File) {
+
+}
+
+func IntegerConstantFunc() {
+
+}
+
+func IdentifierFunc() {
+
+}
+
+func SymbolFunc() {
+
+}
+
+func KeywordFunc() {
+
 }
 
 func stringInList(a string, list []string) bool {
