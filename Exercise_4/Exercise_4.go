@@ -31,7 +31,9 @@ var pathArray = strings.Split(path, "\\")
 
 // Create the output file with the according name
 var directoryName = pathArray[len(pathArray)-1]
-var tokensFile, _ = os.Create("my" + directoryName + "T.xml")
+
+//var tokensFile, _ = os.Create(directoryName + "T.xml")
+var tokensFile *os.File
 
 //var parserFile, _  = os.Create("my" + directoryName + ".xml")
 
@@ -48,9 +50,10 @@ func main() {
 		extension := filepath.Ext(fileName)
 		if extension == ".jack" {
 			fmt.Printf("File Name: %s\n", fileName)
-			// removes the extension from the file name and prints it
+			// removes the extension from the file name
 			name := strings.TrimRight(fileName, extension)
-			tokensFile.WriteString("//" + name + "\n")
+			tokensFile, _ = os.Create(directoryName + "_" + name + "T.xml")
+
 			inputJackFile, _ := os.Open(path)
 			defer inputJackFile.Close()
 
@@ -76,19 +79,18 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 
 	var tokenClassification string
 
-	var skipLine bool
-
 	for data.Scan() {
 		char := data.Text()
 		_, errInt := strconv.Atoi(char)
 		var token = ""
+		var nextChar string
+	switchAgain:
 		switch {
 		case char == "/": // "//" or "/*" or "/**"
 			data.Scan()
-			nextChar := data.Text()
+			nextChar = data.Text()
 			switch nextChar {
 			case "/": // found "//"
-				skipLine = true
 				data.Scan()
 				nextChar = data.Text()
 				for nextChar != "\n" {
@@ -96,15 +98,19 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 					nextChar = data.Text()
 				}
 			case "*": // found "/*" or "/**"
-				skipLine = true
 				data.Scan()
 				nextChar = data.Text()
+				if nextChar == "*" { // found "/**"
+					data.Scan()
+					nextChar = data.Text()
+				}
 				for nextChar != "*" {
 					data.Scan()
 					nextChar = data.Text()
 					if nextChar == "*" {
 						data.Scan()
-						if data.Text() == "/" {
+						nextChar = data.Text()
+						if nextChar == "/" {
 							break
 						}
 					}
@@ -112,29 +118,32 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			default:
 				tokenClassification = "symbol"
 				token = char
+				WriteToken(tokenClassification, char)
 			}
 
-		//SkipCommentLines(*outputFile)
 		case char == "_", IsLetter(char): // keyword or identifier
-			skipLine = false
 			//KeywordFunc()
 			token += char
 			data.Scan()
-			nextChar := data.Text()
+			nextChar = data.Text()
 			for nextChar == "_" || IsLetter(nextChar) || errInt == nil {
 				token += nextChar
 				data.Scan()
 				nextChar = data.Text()
 			}
-			//char = nextChar
 			if stringInList(token, keyword) {
 				tokenClassification = "keyword"
 			} else {
 				tokenClassification = "identifier"
 			}
+			WriteToken(tokenClassification, token)
+			//println(token + " " + nextChar)
+			if nextChar != " " && stringInList(nextChar, symbol) {
+				WriteToken("symbol", nextChar)
+			}
+			break switchAgain
 
 		case stringInList(char, symbol): // symbol
-			skipLine = false
 			//SymbolFunc()
 			tokenClassification = "symbol"
 			switch char { // Special characters
@@ -149,23 +158,29 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			default:
 				token = char
 			}
+			WriteToken(tokenClassification, token)
 
 		case errInt == nil: // integer constant
-			skipLine = false
 			//IntegerConstantFunc()
 			tokenClassification = "integerConstant"
-			token += char
+			nextChar = char
+			token += nextChar
 			data.Scan()
-			_, errInt = strconv.Atoi(data.Text())
+			nextChar = data.Text()
+			_, errInt = strconv.Atoi(nextChar)
 			for errInt == nil {
-				char = data.Text()
-				token += char
+				token += nextChar
 				data.Scan()
-				_, errInt = strconv.Atoi(data.Text())
+				nextChar = data.Text()
+				_, errInt = strconv.Atoi(nextChar)
 			}
+			WriteToken(tokenClassification, token)
+			if nextChar != " " && stringInList(nextChar, symbol) {
+				WriteToken("symbol", nextChar)
+			}
+			break switchAgain
 
 		case char == "\"": // string constant
-			skipLine = false
 			//IdentifierFunc()
 			tokenClassification = "stringConstant"
 			data.Scan()
@@ -175,24 +190,23 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 				data.Scan()
 				char = data.Text()
 			}
+			WriteToken(tokenClassification, token)
+
 		default: // skips spaces
-			continue
-		}
-		if !skipLine {
-			outputFile.WriteString("<" + tokenClassification + "> ")
-			outputFile.WriteString(token)
-			outputFile.WriteString(" </" + tokenClassification + ">\n")
+			break
 		}
 	}
-	outputFile.WriteString("</tokens>")
+	outputFile.WriteString("</tokens>\n")
 
 	if err := data.Err(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func SkipCommentLines(file os.File) {
-
+func WriteToken(tokenClassification string, token string) {
+	tokensFile.WriteString("<" + tokenClassification + "> ")
+	tokensFile.WriteString(token)
+	tokensFile.WriteString(" </" + tokenClassification + ">\n")
 }
 
 func IntegerConstantFunc() {
