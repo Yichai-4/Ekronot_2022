@@ -19,10 +19,11 @@ import (
 	"strings"
 )
 
-// Constants
+// Collection of keywords in the JACK language
 var keyword = []string{"class", "constructor", "function", "method", "field", "static", "var",
 	"int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"}
 
+// Collection of symbols in the JACK language
 var symbol = []string{"{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
 
 // Receive the path in program argument
@@ -68,6 +69,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 	outputFile.WriteString("<tokens>\n")
 
 	//data := bufio.NewScanner(inputFilePath)
+	// Reads the input file and converts it into string of characters
 	fileBuffer, err := ioutil.ReadFile(inputFilePath)
 	if err != nil {
 		fmt.Println(err)
@@ -84,6 +86,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 		var token string
 		var nextChar string
 		switch {
+		// Skip all comment types
 		case char == "/": // "//" or "/*" or "/**"
 			data.Scan()
 			nextChar = data.Text()
@@ -120,7 +123,8 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 				WriteToken(tokenClassification, char)
 			}
 
-		case char == "_", IsLetter(char): // keyword or identifier
+		// Handles keyword or identifier
+		case char == "_", IsLetter(char):
 			// GetKeywordIdentifierToken()
 			token += char
 			data.Scan()
@@ -141,6 +145,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 				WriteToken("symbol", nextChar)
 			}
 
+		// Handles symbol
 		case StringInList(char, symbol): // symbol
 			// GetSymbolToken()
 			tokenClassification = "symbol"
@@ -158,7 +163,8 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			}
 			WriteToken(tokenClassification, token)
 
-		case IsInteger(char): // integer constant
+		// Handles integer constant
+		case IsInteger(char):
 			// GetIntegerToken()
 			tokenClassification = "integerConstant"
 			nextChar = char
@@ -175,7 +181,8 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 				WriteToken("symbol", nextChar)
 			}
 
-		case char == "\"": // string constant
+		// Handles string constant
+		case char == "\"":
 			// GetStringToken()
 			tokenClassification = "stringConstant"
 			data.Scan()
