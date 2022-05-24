@@ -65,10 +65,11 @@ func main() {
 	})
 }
 
+// Tokenize Reads the input file, goes through it character by character,
+// and writes all the tokens it contains (according to the JACK language syntax) in the output file
 func Tokenize(outputFile *os.File, inputFilePath string) {
-	outputFile.WriteString("<tokens>\n")
+	outputFile.WriteString("<tokens>\n") // the xml file (xxxT.xml) has to begin by "<tokens>"
 
-	//data := bufio.NewScanner(inputFilePath)
 	// Reads the input file and converts it into string of characters
 	fileBuffer, err := ioutil.ReadFile(inputFilePath)
 	if err != nil {
@@ -88,121 +89,147 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 		switch {
 		// Skip all comment types
 		case char == "/": // "//" or "/*" or "/**"
-			data.Scan()
-			nextChar = data.Text()
-			switch nextChar {
-			// Start comment
-			case "/": // found "//"
-				data.Scan()
-				nextChar = data.Text()
-				for nextChar != "\n" {
-					data.Scan()
-					nextChar = data.Text()
-				}
-			case "*": // found "/*"
-				data.Scan()
-				nextChar = data.Text()
-				if nextChar == "*" { // found "/**"
-					data.Scan()
-					nextChar = data.Text()
-				}
-				for nextChar != "*" {
-					data.Scan()
-					nextChar = data.Text()
-					if nextChar == "*" {
-						data.Scan()
-						nextChar = data.Text()
-						if nextChar == "/" {
-							break
-						}
-					}
-				}
-			default:
-				tokenClassification = "symbol"
-				token = char
-				WriteToken(tokenClassification, char)
-			}
+			SkipCommentLines(data, token, char)
 
 		// Handles keyword or identifier
 		case char == "_", IsLetter(char):
-			// GetKeywordIdentifierToken()
-			token += char
-			data.Scan()
-			nextChar = data.Text()
-			for nextChar == "_" || IsLetter(nextChar) || IsInteger(nextChar) {
-				token += nextChar
-				data.Scan()
-				nextChar = data.Text()
-			}
+			token, nextChar = GetKeywordIdentifierToken(data, token, char)
 			if StringInList(token, keyword) {
 				tokenClassification = "keyword"
 			} else {
 				tokenClassification = "identifier"
 			}
 			WriteToken(tokenClassification, token)
-			//println(token + " " + nextChar)
+			// Case of a symbol next to keyword or identifier
 			if nextChar != " " && StringInList(nextChar, symbol) {
 				WriteToken("symbol", nextChar)
 			}
 
 		// Handles symbol
-		case StringInList(char, symbol): // symbol
-			// GetSymbolToken()
+		case StringInList(char, symbol):
 			tokenClassification = "symbol"
-			switch char { // Special characters
-			case "<":
-				token = "&lt;"
-			case ">":
-				token = "&gt;"
-			case "\"":
-				token = "&quot;"
-			case "&":
-				token = "&amp;"
-			default:
-				token = char
-			}
+			token = GetSymbolToken(char, token)
 			WriteToken(tokenClassification, token)
 
 		// Handles integer constant
 		case IsInteger(char):
-			// GetIntegerToken()
 			tokenClassification = "integerConstant"
-			nextChar = char
-			token = nextChar
-			data.Scan()
-			nextChar = data.Text()
-			for IsInteger(nextChar) {
-				token += nextChar
-				data.Scan()
-				nextChar = data.Text()
-			}
+			token, nextChar = GetIntegerToken(data, token, char)
 			WriteToken(tokenClassification, token)
+			// Case of a symbol next to integer
 			if nextChar != " " && StringInList(nextChar, symbol) {
 				WriteToken("symbol", nextChar)
 			}
 
 		// Handles string constant
 		case char == "\"":
-			// GetStringToken()
 			tokenClassification = "stringConstant"
-			data.Scan()
-			nextChar = data.Text()
-			for nextChar != "\"" {
-				token += nextChar
-				data.Scan()
-				nextChar = data.Text()
-			}
+			token = GetStringToken(data, token)
 			WriteToken(tokenClassification, token)
 
 		default: // skips spaces
 			break
 		}
 	}
-	outputFile.WriteString("</tokens>\n")
+	outputFile.WriteString("</tokens>\n") // the xml file (xxxT.xml) has to end by "</tokens>"
 
 	if err := data.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func SkipCommentLines(data *bufio.Scanner, token string, char string) {
+	data.Scan()
+	nextChar := data.Text()
+	switch nextChar {
+	// Start comment
+	case "/": // found "//"
+		data.Scan()
+		nextChar = data.Text()
+		for nextChar != "\n" {
+			data.Scan()
+			nextChar = data.Text()
+		}
+	case "*": // found "/*"
+		data.Scan()
+		nextChar = data.Text()
+		if nextChar == "*" { // found "/**"
+			data.Scan()
+			nextChar = data.Text()
+		}
+		for nextChar != "*" {
+			data.Scan()
+			nextChar = data.Text()
+			if nextChar == "*" {
+				data.Scan()
+				nextChar = data.Text()
+				if nextChar == "/" {
+					break
+				}
+			}
+		}
+	default: // found single symbol "/"
+		tokenClassification := "symbol"
+		token = char
+		WriteToken(tokenClassification, char)
+	}
+}
+
+// GetKeywordIdentifierToken Gets the current keyword or identifier token and the next char
+func GetKeywordIdentifierToken(data *bufio.Scanner, token string, char string) (string, string) {
+	token += char
+	data.Scan()
+	nextChar := data.Text()
+	for nextChar == "_" || IsLetter(nextChar) || IsInteger(nextChar) {
+		token += nextChar
+		data.Scan()
+		nextChar = data.Text()
+	}
+	return token, nextChar
+}
+
+// GetSymbolToken Gets the current correct symbol token
+func GetSymbolToken(char string, token string) string {
+	switch char {
+	// Special symbol
+	case "<":
+		token = "&lt;"
+	case ">":
+		token = "&gt;"
+	case "\"":
+		token = "&quot;"
+	case "&":
+		token = "&amp;"
+	// Regular symbol
+	default:
+		token = char
+	}
+	return token
+}
+
+// GetIntegerToken Gets the token of the current constant integer and the next char
+func GetIntegerToken(data *bufio.Scanner, token string, char string) (string, string) {
+	token = char
+	data.Scan()
+	nextChar := data.Text()
+	for IsInteger(nextChar) {
+		token += nextChar
+		data.Scan()
+		nextChar = data.Text()
+	}
+	return token, nextChar
+}
+
+// GetStringToken Gets the token of the current constant string
+func GetStringToken(data *bufio.Scanner, token string) string {
+	data.Scan()
+	nextChar := data.Text()
+	for nextChar != "\"" {
+		token += nextChar
+		data.Scan()
+		nextChar = data.Text()
+	}
+	return token
 }
 
 // WriteToken Write the current token on the file according to the correct format
@@ -232,6 +259,7 @@ func IsInteger(s string) bool {
 
 // IsLetter Checks if the string is a letter or not
 func IsLetter(s string) bool {
+
 	for _, char := range s {
 		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') {
 			return false
