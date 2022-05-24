@@ -32,7 +32,7 @@ var pathArray = strings.Split(path, "\\")
 // Create the output file with the according name
 var directoryName = pathArray[len(pathArray)-1]
 
-//var tokensFile, _ = os.Create(directoryName + "T.xml")
+// Initializes a file which will contain the tokens of the program
 var tokensFile *os.File
 
 //var parserFile, _  = os.Create("my" + directoryName + ".xml")
@@ -81,15 +81,14 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 
 	for data.Scan() {
 		char := data.Text()
-		_, errInt := strconv.Atoi(char)
-		var token = ""
+		var token string
 		var nextChar string
-	switchAgain:
 		switch {
 		case char == "/": // "//" or "/*" or "/**"
 			data.Scan()
 			nextChar = data.Text()
 			switch nextChar {
+			// Start comment
 			case "/": // found "//"
 				data.Scan()
 				nextChar = data.Text()
@@ -97,7 +96,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 					data.Scan()
 					nextChar = data.Text()
 				}
-			case "*": // found "/*" or "/**"
+			case "*": // found "/*"
 				data.Scan()
 				nextChar = data.Text()
 				if nextChar == "*" { // found "/**"
@@ -122,29 +121,28 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			}
 
 		case char == "_", IsLetter(char): // keyword or identifier
-			//KeywordFunc()
+			// GetKeywordIdentifierToken()
 			token += char
 			data.Scan()
 			nextChar = data.Text()
-			for nextChar == "_" || IsLetter(nextChar) || errInt == nil {
+			for nextChar == "_" || IsLetter(nextChar) || IsInteger(nextChar) {
 				token += nextChar
 				data.Scan()
 				nextChar = data.Text()
 			}
-			if stringInList(token, keyword) {
+			if StringInList(token, keyword) {
 				tokenClassification = "keyword"
 			} else {
 				tokenClassification = "identifier"
 			}
 			WriteToken(tokenClassification, token)
 			//println(token + " " + nextChar)
-			if nextChar != " " && stringInList(nextChar, symbol) {
+			if nextChar != " " && StringInList(nextChar, symbol) {
 				WriteToken("symbol", nextChar)
 			}
-			break switchAgain
 
-		case stringInList(char, symbol): // symbol
-			//SymbolFunc()
+		case StringInList(char, symbol): // symbol
+			// GetSymbolToken()
 			tokenClassification = "symbol"
 			switch char { // Special characters
 			case "<":
@@ -160,35 +158,32 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			}
 			WriteToken(tokenClassification, token)
 
-		case errInt == nil: // integer constant
-			//IntegerConstantFunc()
+		case IsInteger(char): // integer constant
+			// GetIntegerToken()
 			tokenClassification = "integerConstant"
 			nextChar = char
-			token += nextChar
+			token = nextChar
 			data.Scan()
 			nextChar = data.Text()
-			_, errInt = strconv.Atoi(nextChar)
-			for errInt == nil {
+			for IsInteger(nextChar) {
 				token += nextChar
 				data.Scan()
 				nextChar = data.Text()
-				_, errInt = strconv.Atoi(nextChar)
 			}
 			WriteToken(tokenClassification, token)
-			if nextChar != " " && stringInList(nextChar, symbol) {
+			if nextChar != " " && StringInList(nextChar, symbol) {
 				WriteToken("symbol", nextChar)
 			}
-			break switchAgain
 
 		case char == "\"": // string constant
-			//IdentifierFunc()
+			// GetStringToken()
 			tokenClassification = "stringConstant"
 			data.Scan()
-			char = data.Text()
-			for char != "\"" {
-				token += data.Text()
+			nextChar = data.Text()
+			for nextChar != "\"" {
+				token += nextChar
 				data.Scan()
-				char = data.Text()
+				nextChar = data.Text()
 			}
 			WriteToken(tokenClassification, token)
 
@@ -203,29 +198,15 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 	}
 }
 
+// WriteToken Write the current token on the file according to the correct format
 func WriteToken(tokenClassification string, token string) {
 	tokensFile.WriteString("<" + tokenClassification + "> ")
 	tokensFile.WriteString(token)
 	tokensFile.WriteString(" </" + tokenClassification + ">\n")
 }
 
-func IntegerConstantFunc() {
-
-}
-
-func IdentifierFunc() {
-
-}
-
-func SymbolFunc() {
-
-}
-
-func KeywordFunc() {
-
-}
-
-func stringInList(a string, list []string) bool {
+// StringInList Checks if the list contains the string a or not
+func StringInList(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
 			return true
@@ -234,6 +215,15 @@ func stringInList(a string, list []string) bool {
 	return false
 }
 
+// IsInteger Checks if the string is an integer or not
+func IsInteger(s string) bool {
+	if _, errInt := strconv.Atoi(s); errInt == nil {
+		return true
+	}
+	return false
+}
+
+// IsLetter Checks if the string is a letter or not
 func IsLetter(s string) bool {
 	for _, char := range s {
 		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') {
