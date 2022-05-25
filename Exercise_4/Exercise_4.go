@@ -19,12 +19,17 @@ import (
 	"strings"
 )
 
-// Collection of keywords in the JACK language
-var keyword = []string{"class", "constructor", "function", "method", "field", "static", "var",
+// Collection of keywords in the Jack language
+var keywords = []string{"class", "constructor", "function", "method", "field", "static", "var",
 	"int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"}
 
-// Collection of symbols in the JACK language
-var symbol = []string{"{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
+// Collection of symbols in the Jack language
+var symbols = []string{"{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
+
+// Collection of non-terminals language elements in the Jack language
+var nonTerminals = []string{"class", "classVarDec", "subroutineDec", "parameterList", "subroutineBody", "varDec",
+	"statements", "whileStatement", "ifStatement", "returnStatement", "letStatement", "doStatement",
+	"expression", "term", "expressionList"}
 
 // Receive the path in program argument
 var path = os.Args[1] // receiving the path as cli parameter
@@ -32,11 +37,12 @@ var pathArray = strings.Split(path, "\\")
 
 // Create the output file with the according name
 var directoryName = pathArray[len(pathArray)-1]
+var fileName string
 
 // Initializes a file which will contain the tokens of the program
 var tokensFile *os.File
 
-//var parserFile, _  = os.Create("my" + directoryName + ".xml")
+var parsedFile *os.File
 
 func main() {
 	// Close the file "outputFile" at the end of the main function
@@ -47,31 +53,159 @@ func main() {
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
-		fileName := info.Name()
-		extension := filepath.Ext(fileName)
+		fullFileName := info.Name()
+		extension := filepath.Ext(fullFileName)
 		if extension == ".jack" {
-			fmt.Printf("File Name: %s\n", fileName)
-			// removes the extension from the file name
-			name := strings.TrimRight(fileName, extension)
-			tokensFile, _ = os.Create(directoryName + "_" + name + "T.xml")
+			fmt.Printf("File Name: %s\n", fullFileName)
+			fileName = strings.TrimRight(fullFileName, extension) // removes the extension from the file name
 
 			inputJackFile, _ := os.Open(path)
 			defer inputJackFile.Close()
 
-			Tokenize(tokensFile, path)
+			Tokenize(path)
 
+			Parse(tokensFile)
 		}
 		return nil
 	})
 }
 
+func Parse(tokensFile *os.File) {
+	parsedFile, _ = os.Create(directoryName + "_" + fileName + ".xml")
+	tokensFile, _ = os.Open(directoryName + "_" + fileName + "T.xml")
+
+	data := bufio.NewScanner(tokensFile)
+	for data.Scan() {
+		words := strings.Split(data.Text(), " ")
+		// tokenType := words[0]
+		currentToken := words[1]
+		switch currentToken {
+		// Program structure
+		case "class":
+			parsedFile.WriteString("<class>\n")
+			CompileClass(data)
+			parsedFile.WriteString("</class>\n")
+			/*case "static", "field":
+				CompileClassVarDec()
+			case "int", "char", "boolean":
+				CompileType()
+			case "constructor", "function", "method":
+				CompileSubroutineDec()
+			case "{":
+				CompileSubroutineBody()
+			case "var":
+				CompileVarDec()
+			// Statements
+			case "let":
+				CompileLetStatement()
+			case "if":
+				CompileIfStatement()
+			case "while":
+				CompileWhileStatement()
+			case "do":
+				CompileDoStatement()
+			case "return":
+				CompileReturnStatement()*/
+
+		}
+		parsedFile.WriteString(data.Text() + "\n")
+	}
+	if err := data.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func CompileClass(data *bufio.Scanner) {
+	parsedFile.WriteString("  " + data.Text())
+
+	data.Scan()
+	words := strings.Split(data.Text(), " ")
+	tokenType := words[0]
+	if tokenType != "<identifier>" {
+		println("error - expected identifier")
+	} else {
+		parsedFile.WriteString("  " + data.Text())
+		data.Scan()
+	}
+	Eat(data, "{")
+	CompileClassVarDec(data)
+	//CompileSubroutineDec()
+	Eat(data, "}")
+}
+
+func CompileClassVarDec(data *bufio.Scanner) {
+	var start = []string{"static", "field"}
+	EatSeveral(data, start)
+	IsType(data)
+	words := strings.Split(data.Text(), " ")
+	tokenType := words[0]
+	if tokenType != "<identifier>" { // checks variable name
+		println("error - expected identifier")
+	} else {
+		parsedFile.WriteString("  " + data.Text())
+		data.Scan()
+	}
+	// Checks (',' varName)*
+	Eat(data, ";")
+
+}
+
+func IsType(data *bufio.Scanner) {
+	var types = []string{"int", "char", "boolean"}
+	words := strings.Split(data.Text(), " ")
+	tokenType := words[0]
+	currentToken := words[1]
+	if !StringInList(currentToken, types) && tokenType != "<identifier>" {
+		print("error - expected one of them ")
+		print(types)
+		println("<identifier>")
+	} else {
+		parsedFile.WriteString("  " + data.Text())
+		data.Scan()
+	}
+}
+
+func EatSeveral(data *bufio.Scanner, start []string) {
+	words := strings.Split(data.Text(), " ")
+	currentToken := words[1]
+	if StringInList(currentToken, start) {
+		print("error - expected one of them ")
+		println(start)
+	} else {
+		parsedFile.WriteString("  " + data.Text())
+		data.Scan()
+	}
+}
+
+func CompileWhileStatement(data *bufio.Scanner) {
+
+	Eat(data, "while") // code to handle 'while'
+	// CompileExpression()
+	Eat(data, ")")
+	Eat(data, "{")
+	// CompileStatements()
+	Eat(data, "}")
+}
+
+func Eat(data *bufio.Scanner, s string) {
+	words := strings.Split(data.Text(), " ")
+	currentToken := words[1]
+	if currentToken != s {
+		println("error - expected " + s)
+	} else {
+		parsedFile.WriteString("  " + data.Text())
+		data.Scan()
+	}
+}
+
 // Tokenize Reads the input file, goes through it character by character,
 // and writes all the tokens it contains (according to the JACK language syntax) in the output file
-func Tokenize(outputFile *os.File, inputFilePath string) {
-	outputFile.WriteString("<tokens>\n") // the xml file (xxxT.xml) has to begin by "<tokens>"
+func Tokenize(jackFilePath string) {
+	tokensFile, _ = os.Create(directoryName + "_" + fileName + "T.xml")
+	tokensFile.WriteString("<tokens>\n") // the xml file (xxxT.xml) has to begin by "<tokens>"
 
 	// Reads the input file and converts it into string of characters
-	fileBuffer, err := ioutil.ReadFile(inputFilePath)
+	fileBuffer, err := ioutil.ReadFile(jackFilePath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -94,19 +228,19 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 		// Handles keyword or identifier
 		case char == "_", IsLetter(char):
 			token, nextChar = GetKeywordIdentifierToken(data, token, char)
-			if StringInList(token, keyword) {
+			if StringInList(token, keywords) {
 				tokenClassification = "keyword"
 			} else {
 				tokenClassification = "identifier"
 			}
 			WriteToken(tokenClassification, token)
 			// Case of a symbol next to keyword or identifier
-			if nextChar != " " && StringInList(nextChar, symbol) {
+			if nextChar != " " && StringInList(nextChar, symbols) {
 				WriteToken("symbol", nextChar)
 			}
 
 		// Handles symbol
-		case StringInList(char, symbol):
+		case StringInList(char, symbols):
 			tokenClassification = "symbol"
 			token = GetSymbolToken(char, token)
 			WriteToken(tokenClassification, token)
@@ -117,7 +251,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			token, nextChar = GetIntegerToken(data, token, char)
 			WriteToken(tokenClassification, token)
 			// Case of a symbol next to integer
-			if nextChar != " " && StringInList(nextChar, symbol) {
+			if nextChar != " " && StringInList(nextChar, symbols) {
 				WriteToken("symbol", nextChar)
 			}
 
@@ -131,7 +265,7 @@ func Tokenize(outputFile *os.File, inputFilePath string) {
 			break
 		}
 	}
-	outputFile.WriteString("</tokens>\n") // the xml file (xxxT.xml) has to end by "</tokens>"
+	tokensFile.WriteString("</tokens>\n") // the xml file (xxxT.xml) has to end by "</tokens>"
 
 	if err := data.Err(); err != nil {
 		log.Fatal(err)
@@ -175,7 +309,7 @@ func SkipCommentLines(data *bufio.Scanner, token string, char string) {
 	}
 }
 
-// GetKeywordIdentifierToken Gets the current keyword or identifier token and the next char
+// GetKeywordIdentifierToken Returns the keyword or identifier of the current token and the next char
 func GetKeywordIdentifierToken(data *bufio.Scanner, token string, char string) (string, string) {
 	token += char
 	data.Scan()
@@ -188,7 +322,7 @@ func GetKeywordIdentifierToken(data *bufio.Scanner, token string, char string) (
 	return token, nextChar
 }
 
-// GetSymbolToken Gets the current correct symbol token
+// GetSymbolToken Returns the according symbol of the current token
 func GetSymbolToken(char string, token string) string {
 	switch char {
 	// Special symbol
@@ -207,7 +341,7 @@ func GetSymbolToken(char string, token string) string {
 	return token
 }
 
-// GetIntegerToken Gets the token of the current constant integer and the next char
+// GetIntegerToken Returns the integer value of the current token and the next char
 func GetIntegerToken(data *bufio.Scanner, token string, char string) (string, string) {
 	token = char
 	data.Scan()
@@ -220,7 +354,7 @@ func GetIntegerToken(data *bufio.Scanner, token string, char string) (string, st
 	return token, nextChar
 }
 
-// GetStringToken Gets the token of the current constant string
+// GetStringToken Returns the string value of the current token
 func GetStringToken(data *bufio.Scanner, token string) string {
 	data.Scan()
 	nextChar := data.Text()
