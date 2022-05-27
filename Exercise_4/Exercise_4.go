@@ -26,10 +26,19 @@ var keywords = []string{"class", "constructor", "function", "method", "field", "
 // Collection of symbols in the Jack language
 var symbols = []string{"{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
 
+// Collection of binary operators in the Jack language
+var operators = []string{"+", "-", "*", "/", "&", "|", "<", ">", "="}
+
+// Collection of unary operators in the Jack language
+var unaryOperators = []string{"-", "~"}
+
 // Collection of non-terminals language elements in the Jack language
-var nonTerminals = []string{"class", "classVarDec", "subroutineDec", "parameterList", "subroutineBody", "varDec",
-	"statements", "whileStatement", "ifStatement", "returnStatement", "letStatement", "doStatement",
-	"expression", "term", "expressionList"}
+/*var nonTerminals = []string{"class", "classVarDec", "subroutineDec", "parameterList", "subroutineBody", "varDec",
+"statements", "whileStatement", "ifStatement", "returnStatement", "letStatement", "doStatement",
+"expression", "term", "expressionList"}*/
+
+// For the different indentations
+var indentation string
 
 // Receive the path in program argument
 var path = os.Args[1] // receiving the path as cli parameter
@@ -75,33 +84,43 @@ func Parse(tokensFile *os.File) {
 	tokensFile, _ = os.Open(directoryName + "_" + fileName + "T.xml")
 
 	data := bufio.NewScanner(tokensFile)
-	for data.Scan() {
-		// Program structure
-		Eat(data, "class")
-		CompileClass(data)
-		parsedFile.WriteString(data.Text() + "\n")
-	}
-	if err := data.Err(); err != nil {
-		log.Fatal(err)
-	}
+	data.Scan()
+	data.Scan() // skip the first line <token>
+	// Program structure
+	CompileClass(data)
 }
 
 func CompileClass(data *bufio.Scanner) {
 	parsedFile.WriteString("<class>\n")
 
-	parsedFile.WriteString("  " + data.Text())
-	data.Scan()
+	indentation = "  "
+	Eat(data, "class")
 	CompileIdentifier(data) // checks class name
 	Eat(data, "{")
-	CompileClassVarDec(data)
-	CompileSubroutineDec(data)
+	// Implements classVarDec*
+	words := strings.Split(data.Text(), " ")
+	nextToken := words[1]
+	for nextToken == "static" || nextToken == "field" {
+		CompileClassVarDec(data)
+		words = strings.Split(data.Text(), " ")
+		nextToken = words[1]
+	}
+	// Implements subroutineDec*
+	words = strings.Split(data.Text(), " ")
+	nextToken = words[1]
+	for nextToken == "constructor" || nextToken == "function" || nextToken == "method" {
+		CompileSubroutineDec(data)
+		words = strings.Split(data.Text(), " ")
+		nextToken = words[1]
+	}
 	Eat(data, "}")
 
 	parsedFile.WriteString("</class>\n")
 }
 
 func CompileSubroutineDec(data *bufio.Scanner) {
-	parsedFile.WriteString("  <subroutineDec>\n")
+	parsedFile.WriteString(indentation + "<subroutineDec>\n")
+	indentation += "  "
 
 	var firstWords = []string{"constructor", "function", "method"}
 	EatOptions(data, firstWords)
@@ -113,26 +132,33 @@ func CompileSubroutineDec(data *bufio.Scanner) {
 	Eat(data, ")")
 	CompileSubroutineBody(data)
 
-	parsedFile.WriteString("  </subroutineDec>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</subroutineDec>\n")
 }
 
 func CompileSubroutineBody(data *bufio.Scanner) {
-	parsedFile.WriteString("  <subroutineBody>\n")
+	parsedFile.WriteString(indentation + "<subroutineBody>\n")
+	indentation += "  "
 
 	Eat(data, "{")
+	// Implements varDec*
 	words := strings.Split(data.Text(), " ")
 	nextToken := words[1]
 	for nextToken == "var" {
 		CompileVarDec(data)
+		words = strings.Split(data.Text(), " ")
+		nextToken = words[1]
 	}
 	CompileStatements(data)
 	Eat(data, "}")
 
-	parsedFile.WriteString("  </subroutineBody>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</subroutineBody>\n")
 }
 
 func CompileStatements(data *bufio.Scanner) {
-	parsedFile.WriteString("  <statements>\n")
+	parsedFile.WriteString(indentation + "<statements>\n")
+	indentation += "  "
 
 	var firstWords = []string{"let", "if", "while", "do", "return"}
 	words := strings.Split(data.Text(), " ")
@@ -151,90 +177,194 @@ func CompileStatements(data *bufio.Scanner) {
 		case "return":
 			CompileReturnStatement(data)
 		}
+		words = strings.Split(data.Text(), " ")
+		nextToken = words[1]
 	}
 
-	parsedFile.WriteString("  </statements>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</statements>\n")
 }
 
 func CompileReturnStatement(data *bufio.Scanner) {
-	parsedFile.WriteString("  <returnStatement>\n")
+	parsedFile.WriteString(indentation + "<returnStatement>\n")
+	indentation += "  "
 
 	Eat(data, "return")
-	// Todo
-	words := strings.Split(data.Text(), " ")
-	currentToken := words[1]
-	if currentToken == "startExpression" {
-		//CompileExpression(data)
+	// Implements "expression?"
+	if IsTerm(data) {
+		CompileExpression(data)
 	}
 	Eat(data, ";")
 
-	parsedFile.WriteString("  </returnStatement>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</returnStatement>\n")
+}
+
+func IsTerm(data *bufio.Scanner) bool {
+	words := strings.Split(data.Text(), " ")
+	tokenType := words[0]
+	currentToken := words[1]
+	if IsInteger(currentToken) || tokenType == "<stringConstant>" || StringInList(currentToken, keywords) ||
+		tokenType == "<identifier" || currentToken == "(" || StringInList(currentToken, unaryOperators) {
+		return true
+	}
+	return false
 }
 
 func CompileDoStatement(data *bufio.Scanner) {
-	parsedFile.WriteString("  <doStatement>\n")
+	parsedFile.WriteString(indentation + "<doStatement>\n")
+	indentation += "  "
 
 	Eat(data, "do") // code to handle 'do'
-	//CompileSubroutineCall(data)
+	// Implements subroutine call
+	CompileIdentifier(data)
+	words := strings.Split(data.Text(), " ")
+	currentToken := words[1]
+	if currentToken == "(" {
+		Eat(data, "(")
+		CompileExpressionList(data)
+		Eat(data, ")")
+	} else {
+		Eat(data, ".")
+		CompileIdentifier(data)
+		Eat(data, "(")
+		CompileExpressionList(data)
+		Eat(data, ")")
+	}
 	Eat(data, ";")
 
-	parsedFile.WriteString("  </doStatement>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</doStatement>\n")
+}
+
+func CompileExpressionList(data *bufio.Scanner) {
+	parsedFile.WriteString(indentation + "<expressionList>\n")
+	indentation += "  "
+
+	words := strings.Split(data.Text(), " ")
+	if IsTerm(data) {
+		CompileExpression(data)
+		words = strings.Split(data.Text(), " ")
+		nextToken := words[1]
+		for nextToken == "," {
+			Eat(data, ",")
+			CompileExpression(data)
+		}
+	}
+
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</expressionList>\n")
 }
 
 func CompileWhileStatement(data *bufio.Scanner) {
-	parsedFile.WriteString("  <whileStatement>\n")
+	parsedFile.WriteString(indentation + "<whileStatement>\n")
+	indentation += "  "
 
 	Eat(data, "while") // code to handle 'while'
-	// CompileExpression(data)
+	CompileExpression(data)
 	Eat(data, ")")
 	Eat(data, "{")
 	CompileStatements(data)
 	Eat(data, "}")
 
-	parsedFile.WriteString("  </whileStatement>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</whileStatement>\n")
 }
 
 func CompileIfStatement(data *bufio.Scanner) {
-	parsedFile.WriteString("  <ifStatement>\n")
+	parsedFile.WriteString(indentation + "<ifStatement>\n")
+	indentation += "  "
 
 	Eat(data, "if") // code to handle 'if'
 	Eat(data, "(")
-	// CompileExpression(data)
+	CompileExpression(data)
 	Eat(data, ")")
 	Eat(data, "{")
 	CompileStatements(data)
 	Eat(data, "}")
-
+	// Implements ('else' '{'statements'}')?
 	words := strings.Split(data.Text(), " ")
 	currentToken := words[1]
 	if currentToken == "else" {
-		parsedFile.WriteString("  " + data.Text())
+		parsedFile.WriteString(indentation + data.Text() + "\n")
 		data.Scan()
 		Eat(data, "{")
 		CompileStatements(data)
 		Eat(data, "}")
 	}
 
-	parsedFile.WriteString("  </ifStatement>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</ifStatement>\n")
 }
 
 func CompileLetStatement(data *bufio.Scanner) {
-	parsedFile.WriteString("  <letStatement>\n")
+	parsedFile.WriteString(indentation + "<letStatement>\n")
+	indentation += "  "
 
 	Eat(data, "let")        // code to handle 'let'
 	CompileIdentifier(data) // check var name
-	// Todo ('[' expression ']')?
+	// Implements ('[' expression ']')?
+	words := strings.Split(data.Text(), " ")
+	currentToken := words[1]
+	if currentToken == "[" {
+		Eat(data, "[")
+		CompileExpression(data)
+		Eat(data, "]")
+	}
 	Eat(data, "=")
-	// CompileExpression()
+	CompileExpression(data)
 	Eat(data, ";")
 
-	parsedFile.WriteString("  </letStatement>\n")
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</letStatement>\n")
+}
+
+func CompileExpression(data *bufio.Scanner) {
+	parsedFile.WriteString(indentation + "<expression>\n")
+	indentation += "  "
+
+	CompileTerm(data)
+	words := strings.Split(data.Text(), " ")
+	nextToken := words[1]
+	for StringInList(nextToken, operators) {
+		Eat(data, nextToken)
+		CompileTerm(data)
+	}
+
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</expression>\n")
+}
+
+func CompileTerm(data *bufio.Scanner) {
+	parsedFile.WriteString(indentation + "<term>\n")
+	indentation += "  "
+
+	CompileIdentifier(data)
+
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</term>\n")
 }
 
 func CompileVarDec(data *bufio.Scanner) {
+	parsedFile.WriteString(indentation + "<varDec>\n")
+	indentation += "  "
+
 	Eat(data, "var")
 	CompileType(data)
 	CompileIdentifier(data) // checks variable name
+	// Implements (',' type varName)*
+	words := strings.Split(data.Text(), " ")
+	nextToken := words[1]
+	for nextToken == "," {
+		Eat(data, ",")
+		CompileIdentifier(data) // checks var name
+		words = strings.Split(data.Text(), " ")
+		nextToken = words[1]
+	}
+	Eat(data, ";")
+
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</varDec>\n")
 }
 
 func CompileIdentifier(data *bufio.Scanner) {
@@ -242,30 +372,58 @@ func CompileIdentifier(data *bufio.Scanner) {
 	tokenType := words[0]
 	if tokenType != "<identifier>" {
 		println("error - expected identifier")
+		data.Scan()
 	} else {
-		parsedFile.WriteString("  " + data.Text())
+		parsedFile.WriteString(indentation + data.Text() + "\n")
 		data.Scan()
 	}
 }
 
 func CompileParameterList(data *bufio.Scanner) {
-	parsedFile.WriteString("  <parameterList>\n")
+	parsedFile.WriteString(indentation + "<parameterList>\n")
+	indentation += "  "
 
-	// Todo implements ((type varName) (',' type varName)*)?
-
-	parsedFile.WriteString("  </parameterList>\n")
+	// Implements ((type varName) (',' type varName)*)?
+	words := strings.Split(data.Text(), " ")
+	tokenType := words[0]
+	nextToken := words[1]
+	var typeList = []string{"int", "char", "boolean"}
+	if StringInList(nextToken, typeList) || tokenType == "<identifier" {
+		CompileType(data)
+		CompileIdentifier(data)
+		words = strings.Split(data.Text(), " ")
+		nextToken = words[1]
+		for nextToken == "," {
+			CompileType(data)
+			CompileIdentifier(data) // checks var name
+			words = strings.Split(data.Text(), " ")
+			nextToken = words[1]
+		}
+	}
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</parameterList>\n")
 }
 
 func CompileClassVarDec(data *bufio.Scanner) {
-	parsedFile.WriteString("  <classVarDec>\n")
+	parsedFile.WriteString(indentation + "<classVarDec>\n")
+	indentation += "  "
 
 	var firstWords = []string{"static", "field"}
 	EatOptions(data, firstWords)
 	CompileType(data)
 	CompileIdentifier(data) // checks variable name
-	// Todo Implements (',' varName)*
+	// Implements (',' varName)*
+	words := strings.Split(data.Text(), " ")
+	nextToken := words[1]
+	for nextToken == "," {
+		CompileIdentifier(data)
+		words = strings.Split(data.Text(), " ")
+		nextToken = words[1]
+	}
 	Eat(data, ";")
-	parsedFile.WriteString("  </classVarDec>\n")
+
+	indentation = indentation[2:]
+	parsedFile.WriteString(indentation + "</classVarDec>\n")
 }
 
 func CompileType(data *bufio.Scanner) {
@@ -274,11 +432,11 @@ func CompileType(data *bufio.Scanner) {
 	tokenType := words[0]
 	currentToken := words[1]
 	if !StringInList(currentToken, types) && tokenType != "<identifier>" {
-		print("error - expected one of them ")
-		print(types)
-		println("<identifier>")
+		print("error - expected one of them: ")
+		fmt.Print(strings.Join(types, ", "))
+		println(", <identifier>")
 	} else {
-		parsedFile.WriteString("  " + data.Text())
+		parsedFile.WriteString(indentation + data.Text() + "\n")
 		data.Scan()
 	}
 }
@@ -286,11 +444,11 @@ func CompileType(data *bufio.Scanner) {
 func EatOptions(data *bufio.Scanner, start []string) {
 	words := strings.Split(data.Text(), " ")
 	currentToken := words[1]
-	if StringInList(currentToken, start) {
-		print("error - expected one of them ")
-		println(start)
+	if !StringInList(currentToken, start) {
+		print("error - expected one of them: ")
+		fmt.Println(strings.Join(start, ", "))
 	} else {
-		parsedFile.WriteString("  " + data.Text())
+		parsedFile.WriteString(indentation + data.Text() + "\n")
 		data.Scan()
 	}
 }
@@ -301,7 +459,7 @@ func Eat(data *bufio.Scanner, s string) {
 	if currentToken != s {
 		println("error - expected " + s)
 	} else {
-		parsedFile.WriteString("  " + data.Text())
+		parsedFile.WriteString(indentation + data.Text() + "\n")
 		data.Scan()
 	}
 }
