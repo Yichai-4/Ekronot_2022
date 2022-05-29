@@ -689,7 +689,8 @@ func CompileExpressionList(data *bufio.Scanner) {
 	parsedFile.WriteString(indentation + "</expressionList>\n")
 }
 
-// CompileIdentifier Compiles an identifier in the Jack language and writes it (token) in the output file
+// CompileIdentifier Compiles an identifier in the Jack language and writes it (token) in the output file.
+// At the end it advances the scanner to the next line in the tokens file
 func CompileIdentifier(data *bufio.Scanner) {
 	words := strings.Split(data.Text(), " ")
 	tokenType := words[0]
@@ -702,7 +703,8 @@ func CompileIdentifier(data *bufio.Scanner) {
 	}
 }
 
-// Eat Reads the current token, checks if it's matching to the string s and if it's so, writes it in the output file
+// Eat Reads the current token, checks if it's matching to the string s and if it's so, writes it in the output file.
+// At the end it advances the scanner to the next line in the tokens file
 func Eat(data *bufio.Scanner, s string) {
 	words := strings.Split(data.Text(), " ")
 	currentToken := words[1]
