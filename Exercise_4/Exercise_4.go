@@ -56,7 +56,7 @@ var tokensFile *os.File
 var parsedFile *os.File
 
 func main() {
-	// Close the file "outputFile" at the end of the main function
+	// Close the file "tokensFile" at the end of the main function
 	defer tokensFile.Close()
 
 	// Go through the file and performs some operations
