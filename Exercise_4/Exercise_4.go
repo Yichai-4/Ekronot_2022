@@ -309,7 +309,7 @@ func CompileClassVarDec(data *bufio.Scanner) {
 	EatOptions(data, firstWords)
 	CompileType(data)
 	CompileIdentifier(data) // checks variable name
-	// Implements (',' varName)*
+	// Compiles (',' varName)*
 	words := strings.Split(data.Text(), " ")
 	nextToken := words[1]
 	for nextToken == "," {
@@ -327,7 +327,6 @@ func CompileClassVarDec(data *bufio.Scanner) {
 // CompileType Compiles a type in the Jack language
 // Syntax: 'int'|'char'|'boolean'|className
 func CompileType(data *bufio.Scanner) {
-	//var types = []string{"int", "char", "boolean"}
 	words := strings.Split(data.Text(), " ")
 	tokenType := words[0]
 	currentToken := words[1]
@@ -479,7 +478,7 @@ func CompileLetStatement(data *bufio.Scanner) {
 
 	Eat(data, "let")        // code to handle 'let'
 	CompileIdentifier(data) // check var name
-	// Implements ('[' expression ']')?
+	// Compiles ('[' expression ']')?
 	words := strings.Split(data.Text(), " ")
 	currentToken := words[1]
 	if currentToken == "[" {
@@ -508,7 +507,7 @@ func CompileIfStatement(data *bufio.Scanner) {
 	Eat(data, "{")
 	CompileStatements(data)
 	Eat(data, "}")
-	// Implements ('else' '{'statements'}')?
+	// Compiles ('else' '{'statements'}')?
 	words := strings.Split(data.Text(), " ")
 	currentToken := words[1]
 	if currentToken == "else" {
@@ -750,7 +749,6 @@ func IsInteger(s string) bool {
 
 // IsLetter Checks if the string is a letter or not
 func IsLetter(s string) bool {
-
 	for _, char := range s {
 		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') {
 			return false
