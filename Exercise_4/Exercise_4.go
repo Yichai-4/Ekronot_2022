@@ -389,6 +389,7 @@ func CompileParameterList(data *bufio.Scanner) {
 			nextToken = words[1]
 		}
 	}
+
 	indentation = indentation[2:]
 	parsedFile.WriteString(indentation + "</parameterList>\n")
 }
@@ -424,7 +425,7 @@ func CompileVarDec(data *bufio.Scanner) {
 	Eat(data, "var")
 	CompileType(data)
 	CompileIdentifier(data) // checks variable name
-	// Compiles (',' type varName)*
+	// Compiles (',' varName)*
 	words := strings.Split(data.Text(), " ")
 	nextToken := words[1]
 	for nextToken == "," {

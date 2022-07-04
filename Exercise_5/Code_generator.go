@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // Collection of keywords in the Jack language
@@ -38,20 +39,25 @@ var unaryOperators = []string{"-", "~"}
 // Collection of built-in types in the Jack language
 var types = []string{"int", "char", "boolean"}
 
-// Symbol table which save the information about the variables of a class
+// Symbol table which saves the information about the variables of a class
 var classSymbolTable [][]string
 
 // Variables categories in the class-level symbol table
 var classVarName, classVarType, classVarKind, classVarCount string
-var i int // the index row of the class-level symbol table
 var className string
 
-// Symbol table which save the information about the variables of a subroutine
+// Symbol table which saves the information about the variables of a subroutine
 var subroutineSymbolTable [][]string
 
 // Variables categories in the subroutine-level symbol table
 var subVarName, subVarType, subVarKind, subVarCount string
-var j int // the index row of the subroutine-level symbol table
+var subroutineName, subroutineType, subroutineReturn string
+
+// Label counter for compiling if and while statements
+var labelCount int
+
+// Saves the number of arguments of a specific function
+var numOfArgs int
 
 // For the different indentations according to the current scope
 var indentation string
@@ -70,7 +76,7 @@ var tokensFile *os.File
 // Defines the file which will contain the tokens of the program with the hierarchy
 var parsedFile *os.File
 
-var vmFile, _ = os.Create(fileName + ".vm")
+var vmFile *os.File
 
 func main() {
 	// Close the file "tokensFile" at the end of the main function
@@ -86,7 +92,8 @@ func main() {
 		if extension == ".jack" {
 			fmt.Printf("File Name: %s\n", fullFileName)
 			fileName = strings.TrimRight(fullFileName, extension) // removes the extension from the file name
-			vmFile.WriteString("// Program: " + fileName + ".jack")
+			vmFile, _ = os.Create(fileName + ".vm")
+			vmFile.WriteString("// Program: " + fileName + ".jack\n")
 
 			inputJackFile, _ := os.Open(path)
 			defer inputJackFile.Close()
@@ -293,13 +300,14 @@ func CompileClass(data *bufio.Scanner) {
 	parsedFile.WriteString("<class>\n")
 	indentation = "  "
 
+	classSymbolTable = nil // resets the symbol table for the new class
+
 	Eat(data, "class")
 	words := strings.Split(data.Text(), " ")
 	className = words[1]
 	CompileIdentifier(data) // checks class name
 	Eat(data, "{")
 	// Compiles classVarDec*
-	i = 0
 	words = strings.Split(data.Text(), " ")
 	nextToken := words[1]
 	for nextToken == "static" || nextToken == "field" {
@@ -311,23 +319,11 @@ func CompileClass(data *bufio.Scanner) {
 	words = strings.Split(data.Text(), " ")
 	nextToken = words[1]
 	for nextToken == "constructor" || nextToken == "function" || nextToken == "method" {
-		// Adds the special line for the method
-		if nextToken == "method" {
-			subVarName = "this"
-			subVarType = className
-			subVarKind = "argument"
-			subroutineSymbolTable[j] = []string{subVarName, subVarType, subVarKind, subVarCount}
-			varCountInt, _ := strconv.Atoi(classVarCount)
-			varCountInt += 1
-			subVarCount = strconv.Itoa(varCountInt)
-			j += 1
-		}
 		CompileSubroutineDec(data)
 		words = strings.Split(data.Text(), " ")
 		nextToken = words[1]
 	}
 	Eat(data, "}")
-	j += 1
 
 	parsedFile.WriteString("</class>\n")
 }
@@ -350,12 +346,12 @@ func CompileClassVarDec(data *bufio.Scanner) {
 	words = strings.Split(data.Text(), " ")
 	classVarName = words[1]
 	CompileIdentifier(data) // checks variable name
-	classSymbolTable[i] = []string{classVarName, classVarType, classVarKind, classVarCount}
+	newRow := []string{classVarName, classVarType, classVarKind, classVarCount}
+	classSymbolTable = append(classSymbolTable, newRow)
 	// Implements (',' varName)*
 	words = strings.Split(data.Text(), " ")
 	nextToken := words[1]
-	for nextToken == "," { // same kind of variable
-		i += 1
+	for nextToken == "," { // same kind and type of variable
 		varCountInt, _ := strconv.Atoi(classVarCount)
 		varCountInt += 1
 		classVarCount = strconv.Itoa(varCountInt)
@@ -363,12 +359,12 @@ func CompileClassVarDec(data *bufio.Scanner) {
 		words = strings.Split(data.Text(), " ")
 		classVarName = words[1]
 		CompileIdentifier(data)
-		classSymbolTable[i] = []string{classVarName, classVarType, classVarKind, classVarCount}
+		newRow = []string{classVarName, classVarType, classVarKind, classVarCount}
+		classSymbolTable = append(classSymbolTable, newRow)
 		words = strings.Split(data.Text(), " ")
 		nextToken = words[1]
 	}
 	Eat(data, ";")
-	i += 1
 
 	indentation = indentation[2:]
 	parsedFile.WriteString(indentation + "</classVarDec>\n")
@@ -396,16 +392,24 @@ func CompileSubroutineDec(data *bufio.Scanner) {
 	parsedFile.WriteString(indentation + "<subroutineDec>\n")
 	indentation += "  "
 
+	subroutineSymbolTable = nil // resets the symbol table for the new subroutine
+
 	var firstWords = []string{"constructor", "function", "method"}
-	EatOptions(data, firstWords)
 	words := strings.Split(data.Text(), " ")
+	subroutineType = words[1]
+	EatOptions(data, firstWords)
+	words = strings.Split(data.Text(), " ")
 	tokenType := words[0]
 	if tokenType == "<identifier>" { // checks className
 		CompileIdentifier(data)
 	} else {
 		var voidOrType = []string{"int", "char", "boolean", "void"}
+		words = strings.Split(data.Text(), " ")
+		subroutineReturn = words[1]
 		EatOptions(data, voidOrType)
 	}
+	words = strings.Split(data.Text(), " ")
+	subroutineName = words[1]
 	CompileIdentifier(data) // checks subroutine name
 	Eat(data, "(")
 	CompileParameterList(data)
@@ -422,34 +426,50 @@ func CompileParameterList(data *bufio.Scanner) {
 	parsedFile.WriteString(indentation + "<parameterList>\n")
 	indentation += "  "
 
+	var newRow []string
+	subVarType = className
 	subVarKind = "argument"
 	subVarCount = "0"
-	subVarType = className
+	// Adds the special line for the method - current object
+	if subroutineType == "method" {
+		newRow = []string{"this", subVarType, subVarKind, subVarCount}
+		subroutineSymbolTable = append(subroutineSymbolTable, newRow)
+		varCountInt, _ := strconv.Atoi(classVarCount)
+		varCountInt += 1
+		subVarCount = strconv.Itoa(varCountInt)
+	}
 	// Compiles ((type varName) (',' type varName)*)?
 	words := strings.Split(data.Text(), " ")
 	tokenType := words[0]
 	nextToken := words[1]
 	if StringInList(nextToken, types) || tokenType == "<identifier" {
-		subroutineSymbolTable[j] = []string{subVarName, subVarType, subVarKind, subVarCount}
+		subVarType = nextToken
 		CompileType(data)
+		words = strings.Split(data.Text(), " ")
+		subVarName = words[1]
 		CompileIdentifier(data)
+		newRow = []string{subVarName, subVarType, subVarKind, subVarCount}
+		subroutineSymbolTable = append(subroutineSymbolTable, newRow)
 		words = strings.Split(data.Text(), " ")
 		nextToken = words[1]
-		for nextToken == "," { // same type and kind
-			j += 1
-			varCountInt, _ := strconv.Atoi(classVarCount)
+		for nextToken == "," { // same kind of variable - argument
+			varCountInt, _ := strconv.Atoi(subVarCount)
 			varCountInt += 1
 			subVarCount = strconv.Itoa(varCountInt)
 			Eat(data, ",")
+			words = strings.Split(data.Text(), " ")
+			subVarType = words[1]
 			CompileType(data)
 			words = strings.Split(data.Text(), " ")
 			subVarName = words[1]
 			CompileIdentifier(data) // checks var name
-			subroutineSymbolTable[j] = []string{subVarName, subVarType, subVarKind, subVarCount}
+			newRow = []string{subVarName, subVarType, subVarKind, subVarCount}
+			subroutineSymbolTable = append(subroutineSymbolTable, newRow)
 			words = strings.Split(data.Text(), " ")
 			nextToken = words[1]
 		}
 	}
+
 	indentation = indentation[2:]
 	parsedFile.WriteString(indentation + "</parameterList>\n")
 }
@@ -461,8 +481,8 @@ func CompileSubroutineBody(data *bufio.Scanner) {
 	indentation += "  "
 
 	Eat(data, "{")
+	subVarCount = "0"
 	// Compiles varDec*
-	j = 0
 	words := strings.Split(data.Text(), " ")
 	nextToken := words[1]
 	for nextToken == "var" {
@@ -470,11 +490,38 @@ func CompileSubroutineBody(data *bufio.Scanner) {
 		words = strings.Split(data.Text(), " ")
 		nextToken = words[1]
 	}
+	numOfLocals := GetCountOf(subroutineSymbolTable, "local")
+	numOfLocalsStr := strconv.Itoa(numOfLocals)
+	vmFile.WriteString("function " + className + "." + subroutineName + " " + numOfLocalsStr + "\n")
+	// In case of constructor, finds a memory block of the required size
+	// and returns its base address
+	if subroutineType == "constructor" {
+		numOfWords := GetCountOf(classSymbolTable, "field")
+		numOfWordsStr := strconv.Itoa(numOfWords)
+		vmFile.WriteString("push " + numOfWordsStr + "\n")
+		vmFile.WriteString("call Memory.alloc 1\n")
+		vmFile.WriteString("pop pointer 0\n") // anchors this at the base address
+	} else
+	// In case of method, associates the "this" memory with the object on which the method is called to operate
+	if subroutineType == "method" {
+		vmFile.WriteString("push argument 0\n")
+		vmFile.WriteString("pop pointer 0\n") // THIS = argument 0
+	}
 	CompileStatements(data)
 	Eat(data, "}")
 
 	indentation = indentation[2:]
 	parsedFile.WriteString(indentation + "</subroutineBody>\n")
+}
+
+func GetCountOf(symbolTable [][]string, kind string) int {
+	var count = 0
+	for _, line := range symbolTable {
+		if line[2] == kind {
+			count += 1
+		}
+	}
+	return count
 }
 
 // CompileVarDec Compiles declaration of variable/s in the Jack language
@@ -491,23 +538,29 @@ func CompileVarDec(data *bufio.Scanner) {
 	words = strings.Split(data.Text(), " ")
 	subVarName = words[1]
 	CompileIdentifier(data) // checks variable name
-	subroutineSymbolTable[j] = []string{subVarName, subVarType, subVarKind, subVarCount}
-	// Compiles (',' type varName)*
+	newRow := []string{subVarName, subVarType, subVarKind, subVarCount}
+	println(newRow[0] + " " + newRow[1] + " " + newRow[2] + " " + newRow[3])
+	subroutineSymbolTable = append(subroutineSymbolTable, newRow)
+	varCountInt, _ := strconv.Atoi(subVarCount)
+	varCountInt += 1
+	subVarCount = strconv.Itoa(varCountInt)
+	// Compiles (',' varName)*
 	words = strings.Split(data.Text(), " ")
 	nextToken := words[1]
-	for nextToken == "," { // same type and kind
-		j += 1
-		varCountInt, _ := strconv.Atoi(classVarCount)
-		varCountInt += 1
-		classVarCount = strconv.Itoa(varCountInt)
+	for nextToken == "," { // same type and same kind of variable
 		Eat(data, ",")
 		words = strings.Split(data.Text(), " ")
 		subVarName = words[1]
 		CompileIdentifier(data) // checks var name
+		newRow = []string{subVarName, subVarType, subVarKind, subVarCount}
+		println(newRow[0] + " " + newRow[1] + " " + newRow[2] + " " + newRow[3])
+		subroutineSymbolTable = append(subroutineSymbolTable, newRow)
 		words = strings.Split(data.Text(), " ")
 		nextToken = words[1]
+		varCountInt, _ = strconv.Atoi(subVarCount)
+		varCountInt += 1
+		subVarCount = strconv.Itoa(varCountInt)
 	}
-	j += 1
 	Eat(data, ";")
 
 	indentation = indentation[2:]
@@ -551,18 +604,44 @@ func CompileLetStatement(data *bufio.Scanner) {
 	parsedFile.WriteString(indentation + "<letStatement>\n")
 	indentation += "  "
 
-	Eat(data, "let")        // code to handle 'let'
-	CompileIdentifier(data) // check var name
-	// Compiles ('[' expression ']')?
+	Eat(data, "let") // code to handle 'let'
 	words := strings.Split(data.Text(), " ")
 	currentToken := words[1]
+	lineIndex, flag := IsInTable(currentToken, subroutineSymbolTable)
+	var kind, count string
+	if flag {
+		kind = subroutineSymbolTable[lineIndex][2]
+		count = subroutineSymbolTable[lineIndex][3]
+	} else {
+		lineIndex, flag = IsInTable(currentToken, classSymbolTable)
+		kind = classSymbolTable[lineIndex][2]
+		count = classSymbolTable[lineIndex][3]
+		if flag && kind == "field" {
+			kind = "this"
+		} else {
+			kind = "static"
+		}
+	}
+	CompileIdentifier(data) // checks var name
+	// Compiles ('[' expression ']')?
+	words = strings.Split(data.Text(), " ")
+	currentToken = words[1]
+	// arr[expression1] = expression2
 	if currentToken == "[" {
+		vmFile.WriteString("push " + kind + " " + count + "\n") // base address of the new object
 		Eat(data, "[")
 		CompileExpression(data)
 		Eat(data, "]")
+		vmFile.WriteString("add\n") // top stack value = RAM address of arr[expression1]
+		Eat(data, "=")
+		CompileExpression(data)
+		vmFile.WriteString("pop temp 0\n") // temp 0 = the value of expression2
+		vmFile.WriteString("pop pointer 1\npush temp 0\npop that 0\n")
+	} else {
+		Eat(data, "=")
+		CompileExpression(data)
+		vmFile.WriteString("pop " + kind + " " + count + "\n") // base address of the new object
 	}
-	Eat(data, "=")
-	CompileExpression(data)
 	Eat(data, ";")
 
 	indentation = indentation[2:]
@@ -575,13 +654,18 @@ func CompileIfStatement(data *bufio.Scanner) {
 	parsedFile.WriteString(indentation + "<ifStatement>\n")
 	indentation += "  "
 
+	labelCountStr := strconv.Itoa(labelCount)
 	Eat(data, "if") // code to handle 'if'
 	Eat(data, "(")
 	CompileExpression(data)
 	Eat(data, ")")
+	vmFile.WriteString("not\n")
+	vmFile.WriteString("if-goto ELSE" + labelCountStr + "\n")
 	Eat(data, "{")
 	CompileStatements(data)
 	Eat(data, "}")
+	vmFile.WriteString("goto ELSE" + labelCountStr + "\n")
+	vmFile.WriteString("label IF_END" + labelCountStr + "\n")
 	// Compiles ('else' '{'statements'}')?
 	words := strings.Split(data.Text(), " ")
 	currentToken := words[1]
@@ -592,6 +676,7 @@ func CompileIfStatement(data *bufio.Scanner) {
 		CompileStatements(data)
 		Eat(data, "}")
 	}
+	vmFile.WriteString("label IF_END" + labelCountStr + "\n")
 
 	indentation = indentation[2:]
 	parsedFile.WriteString(indentation + "</ifStatement>\n")
@@ -603,13 +688,20 @@ func CompileWhileStatement(data *bufio.Scanner) {
 	parsedFile.WriteString(indentation + "<whileStatement>\n")
 	indentation += "  "
 
+	labelCountStr := strconv.Itoa(labelCount)
+	vmFile.WriteString("label WHILE_EXP" + labelCountStr + "\n")
 	Eat(data, "while") // code to handle 'while'
 	Eat(data, "(")
 	CompileExpression(data)
 	Eat(data, ")")
+	vmFile.WriteString("not\n")
+	vmFile.WriteString("if-goto WHILE_END" + labelCountStr + "\n")
 	Eat(data, "{")
 	CompileStatements(data)
+	vmFile.WriteString("goto WHILE_EXP" + labelCountStr + "\n")
 	Eat(data, "}")
+	vmFile.WriteString("label WHILE_END" + labelCountStr + "\n")
+	labelCount += 1
 
 	indentation = indentation[2:]
 	parsedFile.WriteString(indentation + "</whileStatement>\n")
@@ -623,20 +715,46 @@ func CompileDoStatement(data *bufio.Scanner) {
 
 	Eat(data, "do") // code to handle 'do'
 	// Compiles subroutine call
-	CompileIdentifier(data)
 	words := strings.Split(data.Text(), " ")
+	subroutineName = words[1]
+	CompileIdentifier(data)
+	words = strings.Split(data.Text(), " ")
 	currentToken := words[1]
 	if currentToken == "(" {
 		Eat(data, "(")
 		CompileExpressionList(data)
 		Eat(data, ")")
+		vmFile.WriteString("call " + subroutineName + "\n")
 	} else {
+		className = subroutineName
+		if unicode.IsLower(rune(subroutineName[0])) { // obj.foo(x1, x2, ...)
+			objectName := subroutineName
+			lineIndex, flag := IsInTable(objectName, subroutineSymbolTable)
+			var kind, count string
+			if flag {
+				kind = subroutineSymbolTable[lineIndex][2]
+				count = subroutineSymbolTable[lineIndex][3]
+			} else {
+				lineIndex, flag = IsInTable(objectName, classSymbolTable)
+				kind = classSymbolTable[lineIndex][2]
+				count = classSymbolTable[lineIndex][3]
+			}
+			vmFile.WriteString("push " + kind + " " + count + "\n")
+			numOfArgs += 1
+			className = objectName
+		}
 		Eat(data, ".")
+		words = strings.Split(data.Text(), " ")
+		subroutineName = words[1]
 		CompileIdentifier(data)
 		Eat(data, "(")
 		CompileExpressionList(data)
 		Eat(data, ")")
+		numOfArgsStr := strconv.Itoa(numOfArgs)
+		vmFile.WriteString("call " + className + "." + subroutineName + " " + numOfArgsStr + "\n")
 	}
+	// The caller of a void method must dump the returned value
+	vmFile.WriteString("pop temp 0\n")
 	Eat(data, ";")
 
 	indentation = indentation[2:]
@@ -655,6 +773,11 @@ func CompileReturnStatement(data *bufio.Scanner) {
 		CompileExpression(data)
 	}
 	Eat(data, ";")
+	if subroutineReturn == "void" {
+		// Methods must return a value
+		vmFile.WriteString("push constant 0\n")
+	}
+	vmFile.WriteString("return\n")
 
 	indentation = indentation[2:]
 	parsedFile.WriteString(indentation + "</returnStatement>\n")
@@ -682,7 +805,10 @@ func CompileExpression(data *bufio.Scanner) {
 	words := strings.Split(data.Text(), " ")
 	nextToken := words[1]
 	for StringInList(nextToken, operators) {
-		var operator = nextToken
+		var operator string
+		if StringInList(nextToken, operators) {
+			operator = nextToken
+		}
 		Eat(data, nextToken)
 		CompileTerm(data)
 		WriteOperator(operator)
@@ -703,16 +829,20 @@ func WriteOperator(operator string) {
 		vmOperator = "sub"
 	case "=":
 		vmOperator = "eq"
-	case ">":
+	case ">", "&gt;":
 		vmOperator = "gt"
-	case "<":
+	case "<", "&lt;":
 		vmOperator = "lt"
-	case "&":
+	case "&", "&amp;":
 		vmOperator = "and"
 	case "|":
 		vmOperator = "or"
+	case "/":
+		vmOperator = "call Math.divide 2"
+	case "*":
+		vmOperator = "call Math.multiply 2"
 	}
-	vmFile.WriteString(vmOperator)
+	vmFile.WriteString(vmOperator + "\n")
 }
 
 // CompileTerm Compiles a term in the Jack language
@@ -725,11 +855,42 @@ func CompileTerm(data *bufio.Scanner) {
 	words := strings.Split(data.Text(), " ")
 	tokenType := words[0]
 	currentToken := words[1]
-	var subroutineName string
 	switch {
 	case tokenType == "<integerConstant>":
-		vmFile.WriteString("push constant " + currentToken)
-	case tokenType == "<stringConstant>", StringInList(currentToken, keywordsConstant):
+		vmFile.WriteString("push constant " + currentToken + "\n")
+		parsedFile.WriteString(indentation + data.Text() + "\n")
+		data.Scan()
+	case tokenType == "<stringConstant>":
+		tokenLine := data.Text()
+		stringToken := strings.TrimLeft(tokenLine, "<stringConstant> ")
+		stringToken = strings.TrimRight(stringToken, "</stringConstant>")
+		//strLength := strings.Count(stringToken, "")
+		strLength := len(stringToken)
+		stringToken = stringToken[:strLength-1] // removes one space in right
+		strLength -= 1                          // updates the length
+		strLengthStr := strconv.Itoa(strLength)
+		vmFile.WriteString("push constant " + strLengthStr + "\n")
+		vmFile.WriteString("call String.new 1\n")
+		i := 0
+		for i < strLength {
+			temp := int(stringToken[i])
+			tempStr := strconv.Itoa(temp)
+			vmFile.WriteString("push constant " + tempStr + "\n")
+			vmFile.WriteString("call String.appendChar 2\n")
+			i += 1
+		}
+		parsedFile.WriteString(indentation + data.Text() + "\n")
+		data.Scan()
+	// Compiling constants
+	case StringInList(currentToken, keywordsConstant):
+		switch currentToken {
+		case "null", "false":
+			vmFile.WriteString("push constant 0\n")
+		case "true":
+			vmFile.WriteString("push constant 1\nneg\n") // push constant -1
+		case "this": // TODO check here
+			vmFile.WriteString("push pointer 0\n")
+		}
 		parsedFile.WriteString(indentation + data.Text() + "\n")
 		data.Scan()
 	case tokenType == "<identifier>": // varName | varName '['expression']' | subroutineCall
@@ -740,28 +901,36 @@ func CompileTerm(data *bufio.Scanner) {
 		if flag {
 			kind = subroutineSymbolTable[lineIndex][2]
 			count = subroutineSymbolTable[lineIndex][3]
+			vmFile.WriteString("push " + kind + " " + count + "\n")
 		} else {
 			lineIndex, flag = IsInTable(currentToken, classSymbolTable)
-			kind = subroutineSymbolTable[lineIndex][2]
-			count = subroutineSymbolTable[lineIndex][3]
+			if flag {
+				kind = classSymbolTable[lineIndex][2]
+				count = classSymbolTable[lineIndex][3]
+				vmFile.WriteString("push " + kind + " " + count + "\n")
+			}
 		}
-		vmFile.WriteString("push " + kind + " " + count)
-		subroutineName = words[1]
+		subClassTemp := currentToken
 		CompileIdentifier(data)
 		words = strings.Split(data.Text(), " ")
 		nextToken := words[1]
 		if nextToken == "[" { // varName '['expression']'
+			// push base address already has been written
 			Eat(data, "[")
-			CompileExpression(data)
+			CompileExpression(data) // offset
 			Eat(data, "]")
+			vmFile.WriteString("add\n")
+			vmFile.WriteString("pop pointer 1\npush that 0\n")
 			// Compiles subroutine call
 			// Syntax: subroutineName '('expressionList')' | (className|varName)'.'subroutineName '('expressionList')'
 		} else if nextToken == "(" { // subroutineName '('expressionList')'
+			subroutineName = subClassTemp
 			Eat(data, "(")
 			CompileExpressionList(data)
 			Eat(data, ")")
-			vmFile.WriteString("call " + subroutineName)
+			vmFile.WriteString("call " + subroutineName + "\n") // output "call f"
 		} else if nextToken == "." { // (className | varName)'.'subroutineName '('expressionList')'
+			className = subClassTemp
 			Eat(data, ".")
 			words = strings.Split(data.Text(), " ")
 			subroutineName = words[1]
@@ -769,7 +938,8 @@ func CompileTerm(data *bufio.Scanner) {
 			Eat(data, "(")
 			CompileExpressionList(data)
 			Eat(data, ")")
-			//vmFile.WriteString("call " + className + "." + subroutineName)
+			numOfArgsStr := strconv.Itoa(numOfArgs)
+			vmFile.WriteString("call " + className + "." + subroutineName + " " + numOfArgsStr + "\n")
 		}
 	case currentToken == "(": // '('expression')'
 		Eat(data, "(")
@@ -785,7 +955,7 @@ func CompileTerm(data *bufio.Scanner) {
 		} else if operator == "-" {
 			vmOperator = "neg"
 		}
-		vmFile.WriteString(vmOperator)
+		vmFile.WriteString(vmOperator + "\n") // output "op"
 	}
 
 	indentation = indentation[2:]
@@ -794,16 +964,14 @@ func CompileTerm(data *bufio.Scanner) {
 
 // IsInTable Checks if an item is in a symbol table and returns the matched line in the table
 func IsInTable(item string, table [][]string) (int, bool) {
-	i := 0
+	rowIndex := 0
 	for _, line := range table {
-		for value := range line {
-			if line[value] == item {
-				return i, true
-			}
+		if line[0] == item { // checks only in the column of item name
+			return rowIndex, true
 		}
-		i += 1
+		rowIndex += 1
 	}
-	return i, false
+	return rowIndex, false
 }
 
 // CompileExpressionList Compiles an expression list in the Jack language
@@ -812,12 +980,15 @@ func CompileExpressionList(data *bufio.Scanner) {
 	parsedFile.WriteString(indentation + "<expressionList>\n")
 	indentation += "  "
 
+	numOfArgs = 0
 	words := strings.Split(data.Text(), " ")
 	if IsTerm(data) {
+		numOfArgs += 1
 		CompileExpression(data)
 		words = strings.Split(data.Text(), " ")
 		nextToken := words[1]
 		for nextToken == "," {
+			numOfArgs += 1
 			Eat(data, ",")
 			CompileExpression(data)
 			words = strings.Split(data.Text(), " ")
