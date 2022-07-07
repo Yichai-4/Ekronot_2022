@@ -376,7 +376,7 @@ func CompileParameterList(data *bufio.Scanner) {
 	words := strings.Split(data.Text(), " ")
 	tokenType := words[0]
 	nextToken := words[1]
-	if StringInList(nextToken, types) || tokenType == "<identifier" {
+	if StringInList(nextToken, types) || tokenType == "<identifier>" {
 		CompileType(data)
 		CompileIdentifier(data)
 		words = strings.Split(data.Text(), " ")
